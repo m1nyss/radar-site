@@ -287,7 +287,7 @@ const QP = new URLSearchParams(location.search);
 const FAMILIES_RU = { dbz:'Отражаемость', zdr:'ZDR', vel:'Скорость' };
 const PREFERRED   = ['bufr_dbz1','bufr_phenomena','gimet_dbz','gimet_phenomena','baltrad_dbz'];
 
-/* ── состояние ─────────────────────────────────────────────────────── */
+/* ── состояние ────────────────────────────────────────────────────── */
 let wmsToken = null;
 let frames = [], utcOff = 3;
 let family = QP.get('family') || 'dbz';
@@ -301,23 +301,21 @@ let currentLayerName = QP.get('layer') || '';
 let caoSrcIdx = 0;
 
 /* ── CORS-прокси ────────────────────────────────────────────────────── */
-/* Публичные прокси ненадёжны: corsproxy.io ограничен localhost [[10]],
-   codetabs закрыт [[20]], allorigins часто падает [[18]]. Поэтому основной
-   путь — свой Cloudflare Worker (код копируется кнопкой «код Worker»),
-   а публичные — автоматический запасной вариант. */
 const PUBLIC_PROXIES = [
   u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
   u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
 ];
-function getUserProxy(){ return (localStorage.getItem('xs_proxy') || '').trim().replace(/\/+$/, ''); }
+function getUserProxy(){ 
+  return (localStorage.getItem('xs_proxy') || 'https://radar-proxy.kuzmaperetruhin.workers.dev').trim().replace(/\/+$/, ''); 
+}
 function proxyWrap(u){ const p = getUserProxy(); return p ? (p + '/?url=' + encodeURIComponent(u)) : null; }
 
 function fetchSmart(url, timeoutMs){
   timeoutMs = timeoutMs || 9000;
   const attempts = [];
   const up = proxyWrap(url);
-  if (up) attempts.push(up);                 // свой Worker — первым
-  attempts.push(url);                         // напрямую (работает same-origin)
+  if (up) attempts.push(up);
+  attempts.push(url);
   PUBLIC_PROXIES.forEach(w => attempts.push(w(url)));
 
   const jobs = attempts.map(u => new Promise((res, rej) => {
@@ -376,9 +374,6 @@ async function testProxy(){
 }
 const WORKER_CODE =
 `// Cloudflare Worker — CORS-прокси для nowcast.ru (бесплатно, 100к запросов/день)
-// 1) dash.cloudflare.com → Workers & Pages → Create → Hello World
-// 2) вставьте этот код → Deploy
-// 3) скопируйте адрес (https://имя.ваш-аккаунт.workers.dev) и вставьте в поле «CORS-прокси»
 export default {
   async fetch(request) {
     const url = new URL(request.url);
