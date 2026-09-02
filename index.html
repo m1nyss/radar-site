@@ -52,10 +52,6 @@ select,input[type=text]{width:100%}
 .info b{color:var(--text);font-weight:500}
 .utc{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:6px}
 .utc b{color:var(--accent2);font-weight:500}
-.slider{display:flex;align-items:center;gap:8px;margin-top:8px}
-.slider input{flex:1;accent-color:var(--accent)}
-.slider span{font-family:var(--mono);font-size:.64rem;color:var(--accent);min-width:36px;text-align:right}
-.note{font-family:var(--mono);font-size:.6rem;line-height:1.5;color:var(--accent2);margin-top:7px;min-height:1em}
 .check{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.66rem;color:var(--text);margin-top:8px;cursor:pointer;user-select:none}
 .check input{accent-color:var(--accent);margin:0}
 .proxy-row{display:flex;gap:6px;margin-top:6px}
@@ -86,16 +82,13 @@ select,input[type=text]{width:100%}
 .layer-card .op-row .lab{font-family:var(--mono);font-size:.58rem;color:var(--muted);letter-spacing:.08em}
 .layer-card .op-row input{flex:1;accent-color:var(--accent)}
 .layer-card .op-row .pct{font-family:var(--mono);font-size:.62rem;color:var(--accent);min-width:34px;text-align:right}
+.layer-scan{font-family:var(--mono);font-size:.56rem;color:var(--muted);margin-top:8px;display:flex;align-items:center;gap:6px;min-height:14px}
+.layer-scan .mini{width:11px;height:11px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
 .legend-frame{margin-top:11px;position:relative;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#0c1420;display:none}
 .legend-frame.on{display:block}
 .legend-frame .lg-cap{position:absolute;top:0;left:0;right:0;padding:4px 8px;font-family:var(--mono);font-size:.54rem;letter-spacing:.12em;color:var(--muted);background:linear-gradient(180deg,rgba(8,13,20,.92),rgba(8,13,20,0));z-index:2;text-transform:uppercase}
 .legend-scroll{max-height:188px;overflow-y:auto;padding:18px 8px 8px}
-.legend-scroll img{display:block;width:100%;height:auto;border-radius:4px;
-  /* сервер отдаёт легенду на белом фоне — инвертируем под тёмную тему,
-     сохраняя различимость цветовых полос */
-  filter:invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.05)}
-.legend-empty{padding:14px 8px;font-family:var(--mono);font-size:.6rem;color:var(--muted);text-align:center}
-/* тонкий скроллбар в тёмной теме */
+.legend-scroll img{display:block;width:100%;height:auto;border-radius:4px;filter:invert(1) hue-rotate(180deg) brightness(1.05) contrast(1.05)}
 .legend-scroll::-webkit-scrollbar, .radars::-webkit-scrollbar, aside::-webkit-scrollbar{width:8px}
 .legend-scroll::-webkit-scrollbar-thumb, .radars::-webkit-scrollbar-thumb, aside::-webkit-scrollbar-thumb{background:#1d2c3e;border-radius:4px}
 .legend-scroll::-webkit-scrollbar-track, .radars::-webkit-scrollbar-track, aside::-webkit-scrollbar-track{background:transparent}
@@ -224,6 +217,7 @@ select,input[type=text]{width:100%}
           <span class="lval" id="layer-val">—</span>
         </div>
         <select id="wms-layer" onchange="onWmsLayer()"><option value="">выключен</option></select>
+        <div class="layer-scan" id="layer-scan"></div>
         <div class="op-row">
           <span class="lab">ПРОЗРАЧНОСТЬ</span>
           <input type="range" id="wms-op" min="0" max="1" step="0.05" value="0.65" oninput="onWmsOpacity()">
@@ -318,8 +312,9 @@ const CAO_REFRESH_MS = 10 * 60 * 1000;
 const QP = new URLSearchParams(location.search);
 const FAMILIES_RU = { dbz:'Отражаемость', zdr:'ZDR', vel:'Скорость' };
 
-/* ── Радарные слои WMS (продукты nowcast.ru / Baltrad) ──────────────── */
-const WMS_LAYERS = [
+/* ── Кандидаты радарных слоёв. Рабочие оставляем, битые/пустые отсеиваем
+   автоматически при загрузке (см. probeLayers). ─────────────────────── */
+const LAYER_CANDIDATES = [
   { id:'bufr_dbz1',          title:'Отражаемость 1 км (BUFR)' },
   { id:'bufr_phenomena',     title:'Опасные явления (BUFR)' },
   { id:'bufr_height',        title:'Высота верхней границы облаков (BUFR)' },
@@ -342,6 +337,7 @@ const WMS_LAYERS = [
   { id:'fmi_open_composite_rr24h',title:'FMI композит — сумма 24 ч' },
 ];
 const PREFERRED = ['bufr_dbz1','bufr_phenomena','gimet_dbz','gimet_phenomena','baltrad_dbz'];
+let WMS_LAYERS = [];   // только прошедшие проверку
 
 /* ── состояние ─────────────────────────────────────────────────────── */
 let wmsToken = null;
@@ -374,6 +370,25 @@ function fetchSmart(url, timeoutMs){
     fetch(u, {cache:'no-store'})
       .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
       .then(t => t && t.length ? res(t) : rej(new Error('пусто')))
+      .catch(rej);
+  }));
+  return Promise.race([
+    Promise.any(jobs),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('таймаут')), timeoutMs))
+  ]);
+}
+/* бинарный fetch через тот же набор прокси (для проверки слоёв) */
+function fetchBytes(url, timeoutMs){
+  timeoutMs = timeoutMs || 8000;
+  const attempts = [];
+  const up = proxyWrap(url);
+  if (up) attempts.push(up);
+  attempts.push(url);
+  PUBLIC_PROXIES.forEach(w => attempts.push(w(url)));
+  const jobs = attempts.map(u => new Promise((res, rej) => {
+    fetch(u, {cache:'no-store'})
+      .then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then(b => b && b.byteLength ? res(new Uint8Array(b)) : rej(new Error('пусто')))
       .catch(rej);
   }));
   return Promise.race([
@@ -507,8 +522,30 @@ function drawLine(){ if (!lineLayer) return; lineLayer.clearLayers();
 function clearLine(){ stopAnim(); pts = []; ports = null; section = null; drawLine(); drawSection(); renderLegend([]);
   $('sec-title').textContent = 'Сечение не построено'; $('sec-meta').textContent = ''; $('hint').style.display = ''; }
 
+/* ── проверка рабочих слоёв ─────────────────────────────────────────── */
+/* Берём крошечный (64×64) GetMap для каждого кандидата на текущем кадре.
+   Слой «рабочий», если сервер вернул валидный PNG разумного размера.
+   Пустые/сломанные/отсутствующие слои в список не попадают. */
+function isPng(b){ return b.length > 200 && b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47; }
+async function probeLayers(time){
+  const scan = $('layer-scan');
+  scan.innerHTML = '<span class="mini"></span>проверка рабочих слоёв…';
+  const results = await Promise.all(LAYER_CANDIDATES.map(async cand => {
+    const q = new URLSearchParams({ SERVICE:'WMS', VERSION:'1.3.0', REQUEST:'GetMap', LAYERS:cand.id, STYLES:'',
+      CRS:'EPSG:3857', BBOX:'-1600000,-1600000,1600000,1600000', WIDTH:'64', HEIGHT:'64',
+      FORMAT:'image/png', TRANSPARENT:'TRUE', TIME:time });
+    if (wmsToken) q.set('token', wmsToken);
+    try{ const b = await fetchBytes(WMS + '?' + q.toString(), 8000); return { cand, ok: isPng(b), size: b.length }; }
+    catch(e){ return { cand, ok:false, size:0 }; }
+  }));
+  WMS_LAYERS = results.filter(r => r.ok).map(r => r.cand);
+  const n = WMS_LAYERS.length;
+  scan.innerHTML = n ? `найдено рабочих слоёв: <b style="color:var(--accent)">${n}</b>` : 'рабочих слоёв сейчас нет';
+  return n;
+}
+
 /* ── радарный слой WMS ──────────────────────────────────────────────── */
-function layerTitle(id){ const l = WMS_LAYERS.find(x => x.id === id); return l ? l.title : id; }
+function layerTitle(id){ const l = WMS_LAYERS.find(x => x.id === id) || LAYER_CANDIDATES.find(x => x.id === id); return l ? l.title : id; }
 function updateLayerHead(){
   const on = !!currentLayerName;
   $('layer-dot').className = 'ldot' + (on ? ' on' : '');
@@ -556,13 +593,15 @@ function renderLayerLegend(){
   img._xp = false; img.src = build(false);
 }
 
-/* ── список слоёв ───────────────────────────────────────────────────── */
+/* ── список слоёв (только рабочие) ──────────────────────────────────── */
 function buildLayerList(){
   const sel = $('wms-layer');
+  const prev = currentLayerName;
   sel.innerHTML = '<option value="">выключен</option>' + WMS_LAYERS.map(l => `<option value="${esc(l.id)}">${esc(l.title)}</option>`).join('');
-  let wanted = currentLayerName;
-  if (!wanted || !WMS_LAYERS.some(l => l.id === wanted)) wanted = PREFERRED[0];
+  let wanted = prev;
+  if (!wanted || !WMS_LAYERS.some(l => l.id === wanted)) wanted = PREFERRED.find(p => WMS_LAYERS.some(l => l.id === p)) || (WMS_LAYERS[0] && WMS_LAYERS[0].id) || '';
   currentLayerName = wanted; sel.value = wanted;
+  updateLayerHead();
 }
 function onWmsLayer(){ currentLayerName = $('wms-layer').value; updateLayerHead(); updateWmsOverlay(); renderLayerLegend(); }
 function onWmsOpacity(){ const v = +$('wms-op').value; $('wms-op-val').textContent = Math.round(v*100) + '%'; if (wmsOverlay) wmsOverlay.setOpacity(v); updateLayerHead(); }
@@ -730,9 +769,6 @@ function toggleDrawer(force){ const open = force !== undefined ? force : !$('asi
 /* ── запуск ─────────────────────────────────────────────────────────── */
 async function boot(){
   $('proxy-url').value = getUserProxy();
-  buildLayerList();
-  updateLayerHead();
-  renderLayerLegend();
 
   veil(true, 'Получение токена…');
   const gotTok = await refreshToken();
@@ -740,6 +776,18 @@ async function boot(){
   else { $('proxy-st').className = 'proxy-st bad'; $('proxy-st').textContent = '✗ токен недоступен — вставьте адрес своего Worker и нажмите «сохранить»'; }
   setInterval(async () => { if (await refreshToken()){ updateWmsOverlay(); renderLayerLegend(); } }, 25000);
 
+  /* кадры нужны, чтобы знать актуальное время для проверки слоёв */
+  try{ const fr = await apiFetch('/frames?limit=200');
+    if (!Array.isArray(fr.frames)) throw new Error('API старше страницы');
+    frames = fr.frames; utcOff = fr.utc_offset_hours != null ? fr.utc_offset_hours : 3;
+    renderTimeSelect();
+  }catch(e){ toast('frames: ' + e.message, true); }
+
+  /* проверка рабочих слоёв на самом свежем кадре */
+  const latestUtc = frames[0] ? frames[0].utc : new Date().toISOString().replace(/\.\d+Z$/,'Z');
+  await probeLayers(latestUtc);
+  buildLayerList();
+  renderLayerLegend();
   updateWmsOverlay();
 
   try{ const h = await apiFetch('/health'); setStatus(!!h.ok, h.ok ? `${h.frames} кадров · скан ${fmtLocal(h.newest).slice(6)}` : 'архив недоступен'); }
@@ -747,12 +795,6 @@ async function boot(){
 
   let info = null;
   try{ info = await apiFetch('/info'); showInfo(info); } catch(e){ $('radar-hint').textContent = 'инфо о радарах недоступно: ' + e.message; }
-
-  try{ const fr = await apiFetch('/frames?limit=200');
-    if (!Array.isArray(fr.frames)) throw new Error('API старше страницы');
-    frames = fr.frames; utcOff = fr.utc_offset_hours != null ? fr.utc_offset_hours : 3;
-    renderTimeSelect();
-  }catch(e){ toast('frames: ' + e.message, true); }
 
   const deep = QP.get('line');
   if (deep){ const nums = deep.split(',').map(Number); if (nums.length === 4 && nums.every(isFinite)){ pts = [[nums[0], nums[1]], [nums[2], nums[3]]]; drawLine(); } }
