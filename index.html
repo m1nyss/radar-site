@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Вертикальное сечение — радарные данные nowcast.ru + meteoinfo.ru</title>
+<title>Радар осадков — вертикальное сечение</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/cyrillic-400-normal.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/cyrillic-600-normal.css">
@@ -16,7 +16,7 @@
   --text:#d7e3f0; --muted:#6f8095;
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
   --sans:'Inter',system-ui,'Segoe UI',sans-serif;
-  --aside-w:302px; --hdr-h:46px;
+  --aside-w:300px; --hdr-h:46px;
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -40,41 +40,21 @@ aside{width:var(--aside-w);flex:none;background:var(--panel);border-right:1px so
 aside section{margin-bottom:16px}
 aside h2{font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin:0 0 8px;font-weight:600}
 .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-button,select,input[type=text]{font-family:var(--mono);font-size:.72rem;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 10px}
-button{cursor:pointer}
+button,select{font-family:var(--mono);font-size:.72rem;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 10px;cursor:pointer}
 button:hover:not(:disabled),select:hover{border-color:var(--accent)}
 button.on{background:var(--accent);border-color:var(--accent);color:#02131c;font-weight:600}
 button.playing{background:var(--accent2);border-color:var(--accent2);color:#20100a;font-weight:600}
 button:disabled{opacity:.38;cursor:not-allowed}
-select,input[type=text]{width:100%}
+select{width:100%}
 .icon-btn{padding:6px 9px;width:auto}
 .info{font-family:var(--mono);font-size:.66rem;line-height:1.65;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:8px 10px}
 .info b{color:var(--text);font-weight:500}
-.utc{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:6px}
-.utc b{color:var(--accent2);font-weight:500}
 .slider{display:flex;align-items:center;gap:8px;margin-top:8px}
 .slider input{flex:1;accent-color:var(--accent)}
 .slider span{font-family:var(--mono);font-size:.64rem;color:var(--accent);min-width:36px;text-align:right}
 .note{font-family:var(--mono);font-size:.6rem;line-height:1.5;color:var(--accent2);margin-top:7px;min-height:1em}
-.legend-img-wrap{margin-top:8px;display:none;background:#dfe7ee;border-radius:5px;padding:6px;max-height:150px;overflow:auto}
-.legend-img-wrap img{display:block;width:100%;height:auto}
 .check{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.66rem;color:var(--text);margin-top:8px;cursor:pointer;user-select:none}
 .check input{accent-color:var(--accent);margin:0}
-.proxy-row{display:flex;gap:6px;margin-top:6px}
-.proxy-row input{flex:1}
-.proxy-row button{width:auto;white-space:nowrap}
-.proxy-st{font-family:var(--mono);font-size:.58rem;color:var(--muted);margin-top:5px;line-height:1.5}
-.proxy-st.ok{color:var(--ok)}
-.proxy-st.bad{color:var(--bad)}
-.radars{font-family:var(--mono);font-size:.66rem;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;max-height:170px;overflow-y:auto;color:var(--muted)}
-.radars label{display:flex;align-items:center;gap:6px;padding:2.5px 0;cursor:pointer;white-space:nowrap}
-.radars input{accent-color:var(--accent);margin:0;flex:none}
-.radars .nm{color:var(--text);overflow:hidden;text-overflow:ellipsis}
-.radars .km{margin-left:auto;color:var(--muted);font-size:.6rem}
-.radars label.far .nm{color:var(--muted)}
-.radars label.far .km{color:var(--accent2)}
-.radars label.offgrid{opacity:.45;cursor:not-allowed}
-.radars label.offgrid .nm{color:var(--muted);text-decoration:line-through}
 
 .right{flex:1;display:flex;flex-direction:column;min-width:0}
 #map{flex:1;min-height:120px;background:var(--panel2);position:relative}
@@ -83,27 +63,20 @@ select,input[type=text]{width:100%}
 .leaflet-control-attribution{background:rgba(10,17,27,.75)!important;color:var(--muted)!important;font-size:.58rem!important}
 .leaflet-control-attribution a{color:#4d6c8c!important}
 .leaflet-bar a{background:var(--panel)!important;color:var(--text)!important;border-color:var(--line)!important}
-#map .hint{position:absolute;z-index:800;top:10px;left:50%;transform:translateX(-50%);background:rgba(10,17,27,.93);border:1px solid var(--line);border-radius:5px;padding:6px 12px;font-family:var(--mono);font-size:.68rem;color:var(--accent);pointer-events:none;white-space:nowrap}
 #map .mapfail{position:absolute;z-index:800;inset:auto 12px 12px 12px;background:rgba(10,17,27,.92);border:1px solid var(--bad);border-radius:5px;padding:8px 12px;font-family:var(--mono);font-size:.66rem;color:#ffc9cf;display:none}
 
 .grab{height:7px;flex:none;background:var(--line);cursor:row-resize;transition:background .15s}
 .grab:hover,.grab.drag{background:var(--accent)}
 
-.panel{height:320px;flex:none;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column}
+.panel{height:300px;flex:none;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column}
 .panel .bar{flex:none;display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.68rem;flex-wrap:wrap}
 .panel .bar .t{color:var(--text)}
 .panel .bar .m{color:var(--muted)}
-.panel .bar .readout{margin-left:auto;color:var(--accent)}
 .panel .bar .tabs{display:flex;gap:4px}
 .panel .bar .tabs button{padding:4px 9px;font-size:.64rem}
 .plot{flex:1;display:flex;min-height:0}
-#canvas-wrap{flex:1;position:relative;min-width:0}
-#sect{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
-#legend{width:110px;flex:none;overflow-y:auto;padding:7px 9px;border-left:1px solid var(--line);font-family:var(--mono);font-size:.6rem}
-#legend .lrow{display:flex;align-items:center;gap:6px;margin-bottom:2.5px}
-#legend .sw{width:14px;height:11px;border-radius:2px;flex:none;border:1px solid rgba(255,255,255,.14)}
-#legend .lb{color:var(--muted);white-space:nowrap}
 
+/* вкладка ЦАО */
 #cao-view{flex:1;display:none;min-height:0}
 #cao-view.on{display:flex}
 #cao-view .gif-wrap{flex:1;position:relative;min-width:0;background:#04070c;display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -138,11 +111,9 @@ select,input[type=text]{width:100%}
   header .stat{font-size:.58rem}
   aside{position:fixed;z-index:950;top:var(--hdr-h);left:0;width:min(90vw,340px);height:calc(100% - var(--hdr-h));transform:translateX(-102%);transition:transform .22s;box-shadow:6px 0 28px rgba(0,0,0,.55)}
   aside.open{transform:none}
-  button,select,input[type=text]{padding:9px 11px;font-size:.76rem}
-  .panel{height:52vh}
-  #legend{width:76px;font-size:.55rem}
-  #legend .sw{width:11px;height:9px}
-  .panel .bar .readout{margin-left:0;width:100%}
+  button,select{padding:9px 11px;font-size:.76rem}
+  .panel{height:50vh}
+  .panel .bar .m{display:none}
   #cao-view.on{flex-direction:column}
   #cao-view .side{width:100%;flex:1;border-left:none;border-top:1px solid var(--line)}
 }
@@ -152,7 +123,7 @@ select,input[type=text]{width:100%}
 
 <header>
   <button id="burger" onclick="toggleDrawer()" title="Меню">☰</button>
-  <h1>Вертикальное сечение<span class="src">радары: nowcast.ru · meteoinfo.ru</span></h1>
+  <h1>Радар осадков<span class="src">данные: RainViewer · meteoinfo.ru</span></h1>
   <span class="clock" id="hdr-clock">—</span>
   <span class="stat"><span class="dot" id="st-dot"></span><span id="st-text">подключение…</span></span>
 </header>
@@ -162,85 +133,49 @@ select,input[type=text]{width:100%}
 <main>
   <aside id="aside">
     <section>
-      <h2>CORS-прокси (для токена)</h2>
-      <div class="info">Эндпоинт <b>/get_token</b> на nowcast.ru не отдаёт CORS-заголовки, поэтому из браузера нужен прокси. Вставьте адрес своего Cloudflare Worker — или оставьте пустым для авто-подбора публичных.</div>
-      <div class="proxy-row">
-        <input type="text" id="proxy-url" placeholder="https://my-cors.workers.dev">
-        <button onclick="saveProxy()">сохранить</button>
+      <h2>Радарный слой</h2>
+      <select id="rv-layer" onchange="onLayer()"></select>
+      <div class="slider">
+        <input type="range" id="rv-op" min="0" max="1" step="0.05" value="0.7" oninput="onOpacity()">
+        <span id="rv-op-val">70%</span>
       </div>
-      <div class="proxy-st" id="proxy-st">проверка…</div>
-      <div class="row" style="margin-top:7px">
-        <button onclick="copyWorkerCode()">📋 код Worker</button>
-        <button onclick="testProxy()">проверить</button>
-      </div>
+      <div class="note" id="rv-note"></div>
     </section>
 
     <section>
-      <h2>Величина</h2>
-      <div class="row" id="families"></div>
-    </section>
-
-    <section>
-      <h2>Время</h2>
+      <h2>Время / анимация</h2>
       <div class="row" style="flex-wrap:nowrap">
         <button class="icon-btn" id="t-prev" title="Кадр назад">‹</button>
-        <button class="icon-btn" id="t-play" title="Проиграть кадры (пробел)">▶</button>
+        <button class="icon-btn" id="t-play" title="Проиграть (пробел)">▶</button>
         <select id="time" style="flex:1" onchange="onTime()"></select>
         <button class="icon-btn" id="t-next" title="Кадр вперёд">›</button>
       </div>
-      <div class="utc" id="time-utc">—</div>
+      <div class="info" id="time-info" style="margin-top:8px">—</div>
     </section>
 
     <section>
-      <h2>Радарный слой</h2>
-      <select id="wms-layer" onchange="onWmsLayer()"><option value="">выключен</option></select>
-      <div class="slider">
-        <input type="range" id="wms-op" min="0" max="1" step="0.05" value="0.65" oninput="onWmsOpacity()">
-        <span id="wms-op-val">65%</span>
-      </div>
-      <div class="legend-img-wrap" id="wms-legend-wrap"><img id="wms-legend-img" alt="Layer legend"></div>
-      <div class="note" id="wms-note"></div>
-    </section>
-
-    <section>
-      <h2>Радары сечения</h2>
-      <label class="check"><input type="checkbox" id="cov-chk" onchange="toggleCoverage()">зоны действия радаров на карте</label>
-      <div class="info" id="radar-hint" style="margin-top:8px">Проведите линию на карте — будет видно, какие локаторы её покрывают.</div>
-      <div class="radars" id="radars" style="margin-top:8px"></div>
-      <div class="row" style="margin-top:7px">
-        <button id="btn-auto" disabled onclick="autoRadars()">автовыбор</button>
-      </div>
-    </section>
-
-    <section>
-      <h2>Линия</h2>
-      <div class="row">
-        <button onclick="clearLine()">очистить</button>
-        <button onclick="shareLink()">ссылка</button>
-      </div>
+      <h2>О проекте</h2>
+      <div class="info">Радарный композит осадков обновляется каждые ~5–10 минут. Источник тайлов — публичный API <b>RainViewer</b> (рассчитан на встраивание в сторонние сайты). Анимация явлений ЦАО — отдельный источник (meteoinfo.ru).</div>
     </section>
   </aside>
 
   <div class="right">
-    <div id="map">
-      <div class="hint" id="hint">кликните по карте — начало линии</div>
-      <div class="mapfail" id="mapfail"></div>
-    </div>
+    <div id="map"><div class="mapfail" id="mapfail"></div></div>
     <div class="grab" id="grab"></div>
     <div class="panel" id="panel">
       <div class="bar">
         <span class="tabs">
-          <button id="tab-x" class="on" onclick="showTab('x')">сечение</button>
+          <button id="tab-r" class="on" onclick="showTab('r')">радар</button>
           <button id="tab-c" onclick="showTab('c')">ЦАО · анимация</button>
         </span>
-        <span class="t" id="sec-title">Сечение не построено</span>
-        <span class="m" id="sec-meta"></span>
-        <span class="readout" id="readout"></span>
+        <span class="t" id="panel-title">Радарный композит осадков</span>
+        <span class="m" id="panel-meta"></span>
       </div>
 
-      <div class="plot" id="x-view">
-        <div id="canvas-wrap"><canvas id="sect"></canvas></div>
-        <div id="legend"><div class="lb">Легенда появится вместе с сечением.</div></div>
+      <div class="plot" id="r-view">
+        <div class="info" style="margin:14px;align-self:flex-start;max-width:520px">
+          На карте отображается анимированный радарный композит осадков. Используйте кнопки ‹ ▶ › слева для переключения кадров во времени, ползунок — для прозрачности слоя, выпадающий список — для типа продукта (осадки / интенсивность). Во вкладке «ЦАО · анимация» — карта явлений погоды Центральной аэрологической обсерватории.
+        </div>
       </div>
 
       <div id="cao-view">
@@ -268,466 +203,181 @@ select,input[type=text]{width:100%}
 <div class="veil" id="veil"><div class="spin"></div><div id="veil-text">Загрузка…</div></div>
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 'use strict';
 
-/* ── источники данных ───────────────────────────────────────────────── */
-const HOST      = 'https://www.nowcast.ru';
-const API       = HOST + '/xsection';
-const WMS       = HOST + '/baltrad_wsgi';
-const TOKEN_URL = HOST + '/get_token';
+/* ── RainViewer API (публичный, CORS разрешён, рассчитан на встраивание) ── */
+const RV_API   = 'https://api.rainviewer.com/public/weather-maps.json';
+const RV_HOST  = 'https://tilecache.rainviewer.com';
+
+/* типы продуктов RainViewer */
+const RV_LAYERS = [
+  { key:'radar',  scheme:'2', title:'Осадки (рад. композит)' },     // past radar frames
+  { key:'nowcast',scheme:'2', title:'Прогноз осадков (nowcast)' },  // forecast frames
+];
+const RV_SCHEMES = {
+  '0':'Original', '1':'Grey', '2':'Meteored', '3':'B&W', '4':'Rainbow', '5':'TIWS'
+};
 
 const CAO_URLS = [ 'https://meteoinfo.ru/hmc-output/rmap/phenomena.gif', 'http://meteorad.ru/static/phenomena.gif' ];
 const CAO_REFRESH_MS = 10 * 60 * 1000;
 
-const QP = new URLSearchParams(location.search);
-const FAMILIES_RU = { dbz:'Отражаемость', zdr:'ZDR', vel:'Скорость' };
-
-/* ── Радарные слои WMS (только нужные, названия на английском) ──────── */
-const WMS_LAYERS = [
-  { id:'bufr_phenomena',  title:'Hazardous phenomena (BUFR)' },
-  { id:'bufr_dbz1',       title:'Reflectivity 1 km (BUFR)' },
-  { id:'bufr_height',     title:'Cloud top height (BUFR)' },
-  { id:'bufr_zdr1',       title:'Differential reflectivity ZDR (BUFR)' },
-  { id:'bufr_summ12',     title:'Precipitation sum 12 h (BUFR)' },
-  { id:'bufr_vel1',       title:'Radial velocity 1 (BUFR)' },
-  { id:'gimet_velocity',  title:'Velocity (GIMET)' },
-  { id:'bufr_vel2',       title:'Radial velocity 2 (BUFR)' },
-  { id:'bufr_vel3',       title:'Radial velocity 3 (BUFR)' },
-  { id:'bufr_vel4',       title:'Radial velocity 4 (BUFR)' },
-  { id:'bufr_precip',     title:'Precipitation intensity (BUFR)' },
-];
-const PREFERRED = ['bufr_dbz1','bufr_phenomena'];
-
 /* ── состояние ─────────────────────────────────────────────────────── */
-let wmsToken = null;
-let frames = [], utcOff = 3;
-let family = QP.get('family') || 'dbz';
-let pts = [], ports = null, section = null, bands = [];
-let userPickedTime = false, infoRadars = [];
-let playing = false, animIdx = null, animTimer = null;
-let map = null, radarLayer = null, coverageLayer = null, lineLayer = null;
-let wmsOverlay = null, wmsTimer = null, wmsViaProxy = false;
-let currentLayerName = QP.get('layer') || '';
+let rvData = null;            // распарсенный ответ API
+let activeKey = 'radar';      // radar | nowcast
+let scheme = '2';
+let frames = [];              // [{time, path}] для активного продукта
+let frameIdx = 0;
+let playing = false, animTimer = null;
+let map = null, radarOverlay = null;
 let caoSrcIdx = 0;
 
-/* ── CORS-прокси ────────────────────────────────────────────────────── */
-const PUBLIC_PROXIES = [
-  u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-  u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
-];
-function getUserProxy(){ return (localStorage.getItem('xs_proxy') || '').trim().replace(/\/+$/, ''); }
-function proxyWrap(u){ const p = getUserProxy(); return p ? (p + '/?url=' + encodeURIComponent(u)) : null; }
-
-function fetchSmart(url, timeoutMs){
-  timeoutMs = timeoutMs || 9000;
-  const attempts = [];
-  const up = proxyWrap(url);
-  if (up) attempts.push(up);
-  attempts.push(url);
-  PUBLIC_PROXIES.forEach(w => attempts.push(w(url)));
-  const jobs = attempts.map(u => new Promise((res, rej) => {
-    fetch(u, {cache:'no-store'})
-      .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
-      .then(t => t && t.length ? res(t) : rej(new Error('пусто')))
-      .catch(rej);
-  }));
-  return Promise.race([
-    Promise.any(jobs),
-    new Promise((_, rej) => setTimeout(() => rej(new Error('таймаут')), timeoutMs))
-  ]);
-}
-async function refreshToken(){
-  try{ const j = JSON.parse(await fetchSmart(TOKEN_URL, 9000)); if (j.token){ wmsToken = j.token; return true; } }catch(e){}
-  return false;
-}
-async function apiFetch(path, retried){
-  const sep = path.includes('?') ? '&' : '?';
-  const url = API + path + sep + 'token=' + encodeURIComponent(wmsToken || '');
-  const res = await fetch(url, {cache:'no-store'});
-  if (res.status === 403 && !retried){ await refreshToken(); return apiFetch(path, true); }
-  const data = await res.json().catch(()=>({}));
-  if (!res.ok || data.error){ const e = new Error(data.error || ('HTTP ' + res.status)); e.detail = data; throw e; }
-  return data;
-}
-
-/* ── помощники UI ──────────────────────────────────────────────────── */
+/* ── helpers ──────────────────────────────────────────────────────── */
 const $ = id => document.getElementById(id);
-function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function toast(msg, bad){ const t = $('toast'); t.textContent = msg; t.className = 'toast on' + (bad ? ' bad' : ''); clearTimeout(t._h); t._h = setTimeout(()=> t.classList.remove('on'), 5200); }
-function veil(on, text){ $('veil').classList.toggle('on', !!on); if (text) $('veil-text').textContent = text; }
-function setStatus(ok, text){ $('st-dot').className = 'dot ' + (ok ? 'ok' : 'bad'); $('st-text').textContent = text; }
-function fmtLocal(a){ const m = String(a).match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? `${m[3]}.${m[2]} ${m[4]}:${m[5]}` : a; }
-function fmtUtc(u){ return u ? u.replace('T',' ').replace(':00Z','Z') : ''; }
+function toast(msg, bad){ const t=$('toast'); t.textContent=msg; t.className='toast on'+(bad?' bad':''); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('on'),5200); }
+function veil(on,text){ $('veil').classList.toggle('on',!!on); if(text)$('veil-text').textContent=text; }
+function setStatus(ok,text){ $('st-dot').className='dot '+(ok?'ok':'bad'); $('st-text').textContent=text; }
+function fmtTime(ts){ const d=new Date(ts*1000); return d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 
-function saveProxy(){
-  const v = $('proxy-url').value.trim().replace(/\/+$/, '');
-  if (v) localStorage.setItem('xs_proxy', v); else localStorage.removeItem('xs_proxy');
-  toast(v ? 'Прокси сохранён — перепроверяю…' : 'Прокси очищен — использую авто-подбор');
-  testProxy().then(() => location.reload());
-}
-async function testProxy(){
-  const st = $('proxy-st'); st.className = 'proxy-st'; st.textContent = 'проверка…';
-  const ok = await refreshToken();
-  if (ok){ st.className = 'proxy-st ok'; st.textContent = '✓ токен получен' + (getUserProxy() ? ' (ваш Worker)' : ' (публичный прокси)'); }
-  else { st.className = 'proxy-st bad'; st.textContent = '✗ токен недоступен — укажите свой Worker'; }
-  return ok;
-}
-const WORKER_CODE =
-`// Cloudflare Worker — CORS-прокси для nowcast.ru (бесплатно, 100к запросов/день)
-// 1) dash.cloudflare.com → Workers & Pages → Create → Hello World
-// 2) вставьте этот код → Deploy
-// 3) скопируйте адрес (https://имя.ваш-аккаунт.workers.dev) и вставьте в поле «CORS-прокси»
-export default {
-  async fetch(request) {
-    const url = new URL(request.url);
-    const target = url.searchParams.get('url');
-    const allow = 'https://www.nowcast.ru';
-    const cors = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    };
-    if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
-    if (!target) return new Response('add ?url=', { status: 400, headers: cors });
-    let parsed;
-    try { parsed = new URL(target); } catch { return new Response('bad url', { status: 400, headers: cors }); }
-    if (parsed.origin !== allow) return new Response('only nowcast.ru allowed', { status: 403, headers: cors });
-    try {
-      const upstream = await fetch(target, { headers: { 'User-Agent': 'xcors-worker' } });
-      const headers = new Headers(upstream.headers);
-      for (const k in cors) headers.set(k, cors[k]);
-      return new Response(upstream.body, { status: upstream.status, headers });
-    } catch (e) {
-      return new Response('upstream error: ' + e.message, { status: 502, headers: cors });
-    }
-  }
-};`;
-function copyWorkerCode(){
-  const done = () => toast('Код Worker скопирован — создайте его на dash.cloudflare.com');
-  if (navigator.clipboard) navigator.clipboard.writeText(WORKER_CODE).then(done).catch(() => prompt('Код Worker:', WORKER_CODE));
-  else prompt('Код Worker:', WORKER_CODE);
-}
-
-/* ── Leaflet: динамическая загрузка с запасными CDN ─────────────────── */
-const LF_CSS = [ 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css' ];
-const LF_JS  = [ 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js' ];
-function loadTag(tag, urls, i, done){
-  if (i >= urls.length) return done(false);
-  const el = document.createElement(tag);
-  if (tag === 'link'){ el.rel = 'stylesheet'; el.href = urls[i]; } else { el.src = urls[i]; }
-  const to = setTimeout(() => { el.onerror = el.onload = null; loadTag(tag, urls, i+1, done); }, 7000);
-  el.onerror = () => { clearTimeout(to); loadTag(tag, urls, i+1, done); };
-  el.onload  = () => { clearTimeout(to); done(true); };
-  document.head.appendChild(el);
-}
-function loadLeaflet(done){ loadTag('link', LF_CSS, 0, () => { if (window.L) return done(true); loadTag('script', LF_JS, 0, ok => done(ok && !!window.L)); }); }
+/* ── карта ─────────────────────────────────────────────────────────── */
 function initMap(){
-  map = L.map('map', { zoomControl:true, worldCopyJump:true }).setView([56.0, 42.0], 5);
-  let tileErrs = 0, switched = false;
-  const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    className:'osm-dark', maxZoom:12, minZoom:3,
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · radar: <a href="https://www.nowcast.ru">nowcast.ru</a>, <a href="https://meteoinfo.ru/radanim">meteoinfo.ru</a>'
+  map = L.map('map',{zoomControl:true,worldCopyJump:true}).setView([55.5,37.5],5);
+  let errs=0, switched=false;
+  const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    className:'osm-dark', maxZoom:12, minZoom:2,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · radar tiles: <a href="https://www.rainviewer.com/api.html">RainViewer</a>'
   }).addTo(map);
-  osm.on('tileerror', () => { if (++tileErrs >= 4 && !switched){ switched = true; osm.remove();
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:12, minZoom:3, subdomains:'abcd', attribution:'&copy; OpenStreetMap · &copy; CARTO · radar: nowcast.ru, meteoinfo.ru' }).addTo(map); } });
-  radarLayer = L.layerGroup().addTo(map); coverageLayer = L.layerGroup().addTo(map); lineLayer = L.layerGroup().addTo(map);
-  map.on('click', e => { if (pts.length >= 2) pts = []; pts.push([+e.latlng.lng.toFixed(4), +e.latlng.lat.toFixed(4)]); ports = null; drawLine();
-    if (window.innerWidth <= 840) toggleDrawer(false); if (pts.length === 2) cut(); });
-  map.on('moveend zoomend', scheduleWms);
-  addRadarMarkers(infoRadars); drawLine(); updateWmsOverlay();
+  osm.on('tileerror',()=>{ if(++errs>=4 && !switched){ switched=true; osm.remove();
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:12,minZoom:2,subdomains:'abcd',
+      attribution:'&copy; OpenStreetMap · &copy; CARTO · radar: RainViewer'}).addTo(map); } });
+  updateRadar();
 }
 
-/* ── радары на карте ────────────────────────────────────────────────── */
-function refreshRadarMarkers(usedPorts){ if (!radarLayer) return;
-  radarLayer.eachLayer(l => { if (l._xsPort === undefined) return; const used = usedPorts && usedPorts.includes(l._xsPort);
-    l.setStyle({ color: used ? '#ff8a3d' : '#2fd2ff', fillColor: used ? '#ff8a3d' : '#2fd2ff' }); l.setRadius(used ? 6 : 4); }); }
-function addRadarMarkers(list){ if (!radarLayer) return; radarLayer.clearLayers(); coverageLayer.clearLayers();
-  list.forEach(r => { const nm = (r.name || '').trim(), extra = [];
-    if (r.speed_kmh != null) extra.push('scan ' + r.speed_kmh + ' km/h');
-    if (r.azimuth_deg != null && r.azimuth_deg <= 360) extra.push('azimuth ' + r.azimuth_deg + '°');
-    const m = L.circleMarker([r.lat, r.lon], { radius:4, color:'#2fd2ff', weight:1.5, fillColor:'#2fd2ff', fillOpacity:.9 })
-      .bindTooltip('<b>' + esc(nm) + '</b><br>port ' + r.port + (extra.length ? '<br>' + esc(extra.join(', ')) : ''), {direction:'top'});
-    m._xsPort = r.port; radarLayer.addLayer(m);
-    coverageLayer.addLayer(L.circle([r.lat, r.lon], { radius:250000, color:'#2fd2ff', weight:1, dashArray:'4 6', fillColor:'#2fd2ff', fillOpacity:.035, interactive:false })); });
-  if (!$('cov-chk').checked) coverageLayer.clearLayers(); }
-function toggleCoverage(){ if (!map) return; coverageLayer.clearLayers();
-  if ($('cov-chk').checked) infoRadars.forEach(r => coverageLayer.addLayer(L.circle([r.lat, r.lon], { radius:250000, color:'#2fd2ff', weight:1, dashArray:'4 6', fillColor:'#2fd2ff', fillOpacity:.035, interactive:false }))); }
-
-/* ── линия ─────────────────────────────────────────────────────────── */
-function drawLine(){ if (!lineLayer) return; lineLayer.clearLayers();
-  pts.forEach(p => lineLayer.addLayer(L.circleMarker([p[1], p[0]], { radius:6, color:'#ff8a3d', weight:2, fillColor:'#0d1520', fillOpacity:1 })));
-  if (pts.length === 2) lineLayer.addLayer(L.polyline(pts.map(p => [p[1], p[0]]), { color:'#ff8a3d', weight:2.5, dashArray:'7 5' }));
-  $('hint').textContent = pts.length === 0 ? 'кликните по карте — начало линии' : pts.length === 1 ? 'кликните ещё раз — конец линии' : 'сечение строится…';
-  $('hint').style.display = pts.length >= 2 ? 'none' : ''; }
-function clearLine(){ stopAnim(); pts = []; ports = null; section = null; drawLine(); drawSection(); renderLegend([]);
-  $('sec-title').textContent = 'Сечение не построено'; $('sec-meta').textContent = ''; $('hint').style.display = ''; }
-
-/* ── радарный слой WMS ──────────────────────────────────────────────── */
-function wmsBuildUrl(){
-  const frame = selectedFrame(); if (!currentLayerName || !frame) return null;
-  const b = map.getBounds().pad(0.05);
-  const sw = L.CRS.EPSG3857.project(b.getSouthWest()), ne = L.CRS.EPSG3857.project(b.getNorthEast());
-  const sz = map.getSize();
-  const w = Math.max(64, Math.min(2400, Math.round(sz.x))), h = Math.max(64, Math.min(2400, Math.round(sz.y)));
-  const q = new URLSearchParams({ SERVICE:'WMS', VERSION:'1.3.0', REQUEST:'GetMap', LAYERS: currentLayerName, STYLES:'', CRS:'EPSG:3857',
-    BBOX: [sw.x, sw.y, ne.x, ne.y].map(v => v.toFixed(1)).join(','), WIDTH:w, HEIGHT:h, FORMAT:'image/png', TRANSPARENT:'TRUE', TIME: frame.utc });
-  if (wmsToken) q.set('token', wmsToken);
-  let url = WMS + '?' + q.toString();
-  if (wmsViaProxy) url = (proxyWrap(url) || PUBLIC_PROXIES[0](url));
-  return { url, bounds: b };
+/* ── радарный слой (один тайловый слой, URL меняется по кадру) ─────── */
+function tileUrl(){
+  const f = frames[frameIdx]; if(!f) return '';
+  // RainViewer tile URL: {host}{path}/{size}/{z}/{x}/{y}/{scheme}/{smoothing}
+  return `${RV_HOST}${f.path}/256/{z}/{x}/{y}/${scheme}/1_0.png`;
 }
-function attachOverlayErr(){ if (!wmsOverlay) return; const el = wmsOverlay.getElement();
-  if (el && !el._xsErr){ el._xsErr = true; el.addEventListener('error', () => {
-    if (!wmsViaProxy){ wmsViaProxy = true; updateWmsOverlay(); } else $('wms-note').textContent = 'radar layer failed to load'; }); } }
-function updateWmsOverlay(){ if (!map) return;
-  const note = $('wms-note'), frame = selectedFrame();
-  if (!currentLayerName || !frame){ if (wmsOverlay){ wmsOverlay.remove(); wmsOverlay = null; } note.textContent = ''; return; }
-  note.textContent = '';
-  const built = wmsBuildUrl(); if (!built) return;
-  if (!wmsOverlay) wmsOverlay = L.imageOverlay(built.url, built.bounds, { opacity: +$('wms-op').value, interactive:false }).addTo(map);
-  else { wmsOverlay.setUrl(built.url); wmsOverlay.setBounds(built.bounds); wmsOverlay.setOpacity(+$('wms-op').value); }
-  wmsOverlay.on('load', attachOverlayErr); attachOverlayErr();
+function updateRadar(){
+  if(!map) return;
+  const url = tileUrl();
+  if(!url){ if(radarOverlay){ radarOverlay.remove(); radarOverlay=null; } return; }
+  if(!radarOverlay){
+    radarOverlay = L.tileLayer(url,{ opacity:+$('rv-op').value, maxZoom:12, minZoom:2,
+      attribution:'radar: <a href="https://www.rainviewer.com/api.html">RainViewer</a>' }).addTo(map);
+  }else{
+    radarOverlay.setUrl(url);
+    radarOverlay.setOpacity(+$('rv-op').value);
+  }
+  updateTimeInfo();
 }
-function scheduleWms(){ if (wmsTimer || !map) return; wmsTimer = setTimeout(()=>{ wmsTimer = null; updateWmsOverlay(); }, 120); }
+function onOpacity(){ const v=+$('rv-op').value; $('rv-op-val').textContent=Math.round(v*100)+'%'; if(radarOverlay) radarOverlay.setOpacity(v); }
+function onLayer(){ activeKey=$('rv-layer').value; rebuildFrames(); }
 
-/* ── легенда слоя карты (быстрый GetLegendGraphic) ──────────────────── */
-function renderLayerLegend(){
-  const wrap = $('wms-legend-wrap'), img = $('wms-legend-img');
-  if (!currentLayerName){ wrap.style.display = 'none'; return; }
-  const build = viaProxy => {
-    let u = `${WMS}?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer=${encodeURIComponent(currentLayerName)}&format=image/png&STYLE=default`;
-    if (wmsToken) u += '&token=' + encodeURIComponent(wmsToken);
-    return viaProxy ? (proxyWrap(u) || PUBLIC_PROXIES[0](u)) : u;
-  };
-  img.onerror = () => { if (!img._xp){ img._xp = true; img.src = build(true); } else wrap.style.display = 'none'; };
-  img._xp = false; img.src = build(false); wrap.style.display = 'block';
+/* ── загрузка метаданных RainViewer ────────────────────────────────── */
+async function loadRainViewer(){
+  const r = await fetch(RV_API,{cache:'no-store'});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  rvData = await r.json();
+  // заполняем список продуктов
+  const sel=$('rv-layer');
+  const opts=[];
+  if(rvData.radar && rvData.radar.past)    opts.push({key:'radar',   title:'Осадки (наблюдения, '+rvData.radar.past.length+' кадр.)'});
+  if(rvData.radar && rvData.radar.nowcast) opts.push({key:'nowcast', title:'Прогноз осадков ('+rvData.radar.nowcast.length+' кадр.)'});
+  sel.innerHTML = opts.map(o=>`<option value="${o.key}">${o.title}</option>`).join('') || '<option value="">нет данных</option>';
+  if(!opts.some(o=>o.key===activeKey)) activeKey = opts[0]?opts[0].key:'radar';
+  sel.value=activeKey;
+  rebuildFrames();
 }
-
-/* ── список слоёв ───────────────────────────────────────────────────── */
-function buildLayerList(){
-  const sel = $('wms-layer');
-  sel.innerHTML = '<option value="">off</option>' +
-    WMS_LAYERS.map(l => `<option value="${esc(l.id)}">${esc(l.title)}</option>`).join('');
-  let wanted = currentLayerName;
-  if (!wanted || !WMS_LAYERS.some(l => l.id === wanted)) wanted = PREFERRED[0];
-  currentLayerName = wanted; sel.value = wanted;
+function rebuildFrames(){
+  const block = rvData && rvData.radar;
+  frames = [];
+  if(block){
+    const arr = activeKey==='nowcast' ? (block.nowcast||[]) : (block.past||[]);
+    frames = arr.map(f=>({ time:f.time, path:f.path }));
+  }
+  frameIdx = frames.length-1;             // начинаем с самого свежего
+  renderTimeSelect();
+  updateRadar();
 }
-function onWmsLayer(){ currentLayerName = $('wms-layer').value; updateWmsOverlay(); renderLayerLegend(); }
-function onWmsOpacity(){ const v = +$('wms-op').value; $('wms-op-val').textContent = Math.round(v*100) + '%'; if (wmsOverlay) wmsOverlay.setOpacity(v); }
-
-/* ── ЦАО-анимация (meteoinfo.ru/radanim) ────────────────────────────── */
-function caoReload(manual){
-  const img = $('cao-gif'), base = CAO_URLS[caoSrcIdx];
-  $('cao-load').style.display = ''; $('cao-load').textContent = 'загрузка анимации (~13 МБ)…';
-  img.onload = () => { $('cao-load').style.display = 'none'; const d = new Date();
-    $('cao-status').innerHTML = 'обновлено: <b>' + d.toLocaleTimeString('ru-RU') + '</b><br>кадров: ~19 (шаг 10 мин), окно ~3 ч'; };
-  img.onerror = () => { if (caoSrcIdx < CAO_URLS.length - 1){ caoSrcIdx++; caoReload(manual); }
-    else { $('cao-load').textContent = 'анимация ЦАО недоступна из этой сети'; $('cao-status').textContent = 'источник: meteoinfo.ru/hmc-output/rmap/phenomena.gif'; } };
-  img.src = base + (base.includes('?') ? '&' : '?') + 'r=' + Date.now();
-  if (manual) toast('Обновляю анимацию ЦАО…');
-}
-function showTab(which){ const x = which === 'x';
-  $('tab-x').classList.toggle('on', x); $('tab-c').classList.toggle('on', !x);
-  $('x-view').style.display = x ? 'flex' : 'none'; $('cao-view').classList.toggle('on', !x);
-  if (!x && !$('cao-gif').getAttribute('src')) caoReload(false);
-  if (x) drawSection(); }
-setInterval(() => { if ($('cao-auto').checked) caoReload(false); }, CAO_REFRESH_MS);
-
-/* ── кадры, время, анимация nowcast ─────────────────────────────────── */
-function selectedFrame(){ const v = $('time').value; return frames.find(f => f.archive === v) || frames[0] || null; }
 function renderTimeSelect(){
-  const sel = $('time'), keep = sel.value;
-  sel.innerHTML = frames.map(f => `<option value="${esc(f.archive)}">${fmtLocal(f.archive)}</option>`).join('');
-  if (keep && frames.some(f => f.archive === keep)) sel.value = keep; else if (frames.length) sel.value = frames[0].archive;
-  updateTimeLabel();
+  const sel=$('time');
+  sel.innerHTML = frames.map((f,i)=>`<option value="${i}">${fmtTime(f.time)}${i===frames.length-1?' · сейчас':''}</option>`).join('');
+  if(frames[frameIdx]) sel.value=frameIdx;
+  updateTimeInfo();
 }
-function updateTimeLabel(){ const f = selectedFrame();
-  $('time-utc').innerHTML = f ? `UTC <b>${esc(fmtUtc(f.utc))}</b> · локальное (МСК+${utcOff})` : '—';
-  $('hdr-clock').innerHTML = f ? `${fmtLocal(f.archive)}<span class="z">${f.utc.replace('T','').replace(':00Z','Z')}</span>` : '—'; }
-function onTime(){ userPickedTime = true; stopAnim(); applyTime(); }
-function stepTime(dir){ if (!frames.length) return; userPickedTime = true; stopAnim();
-  const i = frames.findIndex(f => f.archive === $('time').value);
-  $('time').value = frames[Math.min(frames.length - 1, Math.max(0, (i < 0 ? 0 : i) + dir))].archive; applyTime(); }
-function applyTime(){ ports = null; updateTimeLabel(); renderTimeSelect(); updateWmsOverlay();
-  apiFetch('/info?time=' + encodeURIComponent($('time').value || 'latest')).then(showInfo).catch(()=>{});
-  if (pts.length === 2) cut(); }
-function togglePlay(){ playing ? stopAnim() : startAnim(); }
-function startAnim(){ if (!frames.length) return; playing = true; $('t-play').textContent = '⏸'; $('t-play').classList.add('playing');
-  const i = frames.findIndex(f => f.archive === $('time').value); animIdx = i < 0 ? frames.length - 1 : i;
-  animTimer = setInterval(() => { animIdx--; if (animIdx < 0) animIdx = frames.length - 1; userPickedTime = true;
-    $('time').value = frames[animIdx].archive; updateTimeLabel(); updateWmsOverlay(); }, 650); }
-function stopAnim(){ if (!playing) return; playing = false; clearInterval(animTimer); animTimer = null; $('t-play').textContent = '▶'; $('t-play').classList.remove('playing'); if (pts.length === 2) cut(); }
-
-/* ── семейства ──────────────────────────────────────────────────────── */
-function renderFamilies(list, levels){ const box = $('families'), names = ['dbz','zdr','vel'];
-  box.innerHTML = names.map(f => { const have = list.includes(f); const nlev = levels && levels[f] ? ` · ${levels[f]} ур.` : '';
-    return `<button data-f="${f}" ${have ? '' : 'disabled'} title="${have ? FAMILIES_RU[f] + nlev : 'в этом кадре нет'}">${FAMILIES_RU[f]}</button>`; }).join('');
-  if (list.length && !list.includes(family)) family = list[0];
-  [...box.querySelectorAll('button')].forEach(b => { b.classList.toggle('on', b.dataset.f === family && !b.disabled);
-    b.onclick = () => { family = b.dataset.f; [...box.querySelectorAll('button')].forEach(x => x.classList.toggle('on', x.dataset.f === family && !x.disabled)); if (pts.length === 2) cut(); }; }); }
-function narrowFamilies(here){ if (!here) return;
-  [...$('families').querySelectorAll('button')].forEach(b => { const ok = here.includes(b.dataset.f); b.disabled = !ok; b.classList.toggle('on', b.dataset.f === family && ok); });
-  if (!here.includes(family) && here.length) family = here[0]; }
-
-/* ── info / радары ──────────────────────────────────────────────────── */
-function showInfo(info){ if (info.utc_offset_hours != null) utcOff = info.utc_offset_hours;
-  renderFamilies(info.families || [], info.levels || {}); infoRadars = info.radars || []; addRadarMarkers(infoRadars); renderRadarsSidebar(infoRadars.map(r => ({...r}))); }
-function renderRadarsSidebar(list){ const box = $('radars');
-  if (!list || !list.length){ box.innerHTML = '<span style="color:var(--muted)">нет данных</span>'; return; }
-  box.innerHTML = list.map(r => { const off = r.on_grid === false, far = r.distance_km != null && r.distance_km > 250, dist = r.distance_km != null ? Math.round(r.distance_km) + ' км' : '';
-    return `<label class="${off ? 'offgrid' : ''} ${far ? 'far' : ''}" title="${off ? 'вне сетки композита' : esc((r.name||'').trim())}">
-      <input type="checkbox" data-port="${r.port}" ${r.used ? 'checked' : ''} ${off ? 'disabled' : ''}>
-      <span class="nm">${esc((r.name||'').trim())}</span><span class="km">${dist}</span></label>`; }).join('');
-  [...box.querySelectorAll('input')].forEach(cb => { cb.onchange = () => { ports = [...box.querySelectorAll('input:checked')].map(x => +x.dataset.port); if (pts.length === 2) cut(); }; }); }
-function autoRadars(){ ports = null; $('btn-auto').disabled = true; if (pts.length === 2) cut(); }
-
-/* ── сечение ────────────────────────────────────────────────────────── */
-async function cut(){ if (pts.length < 2) return; stopAnim(); veil(true, 'Cutting…');
-  try{ const q = new URLSearchParams({ lon1: pts[0][0], lat1: pts[0][1], lon2: pts[1][0], lat2: pts[1][1], family: family, time: $('time').value || 'latest' });
-    if (ports !== null && ports.length) q.set('ports', ports.join(','));
-    section = await apiFetch('/xsection?' + q.toString());
-    pts = [section.cut_from.map(v => +v.toFixed(4)), section.cut_to.map(v => +v.toFixed(4))];
-    drawLine(); bands = parseBands(section.legend); renderLegend(section.legend); renderRadarsSidebar(section.radars);
-    refreshRadarMarkers(section.ports_used);
-    if (section.families_here) narrowFamilies(section.families_here);
-    $('btn-auto').disabled = false;
-    $('sec-title').textContent = `${section.title || FAMILIES_RU[family]} · ${section.units || ''}`;
-    $('sec-meta').textContent = `${section.length_km.toFixed(1)} км · высоты ${section.base_km}–${section.top_km} км · ${fmtLocal(section.frame_time)}`;
-    drawSection();
-  }catch(e){ section = null; drawSection();
-    if (e.detail && e.detail.radars){ renderRadarsSidebar(e.detail.radars); if (e.detail.families_here) narrowFamilies(e.detail.families_here); }
-    toast(e.message, true);
-  }finally{ veil(false); } }
-
-/* ── цвета и легенда сечения ────────────────────────────────────────── */
-function parseBands(rows){ const out = [];
-  for (const r of rows){ const s = r.label.trim(); let lo = null, hi = null, m;
-    if ((m = s.match(/^>=?\s*(-?[\d.]+)$/))) { lo = +m[1]; hi = Infinity; }
-    else if ((m = s.match(/^<=?\s*(-?[\d.]+)$/))) { lo = -Infinity; hi = +m[1]; }
-    else if ((m = s.match(/^(-?[\d.]+)\.\.(-?[\d.]+)$/))) { lo = +m[1]; hi = +m[2]; } else continue;
-    out.push({ lo: Math.min(lo,hi), hi: Math.max(lo,hi), color: r.color, label: s }); } return out; }
-function colorOf(v){ for (const b of bands) if (v >= b.lo && v < b.hi) return b.color;
-  if (bands.length){ const top = bands.reduce((a,b) => b.hi > a.hi ? b : a), bot = bands.reduce((a,b) => b.lo < a.lo ? b : a);
-    if (v >= top.hi) return top.color; if (v < bot.lo) return bot.color; } return '#888'; }
-function renderLegend(rows){ $('legend').innerHTML = rows && rows.length
-  ? rows.map(r => `<div class="lrow"><span class="sw" style="background:${esc(r.color)}"></span><span class="lb">${esc(r.label)}</span></div>`).join('')
-  : '<div class="lb">Легенда появится вместе с сечением.</div>'; }
-
-/* ── канва сечения ──────────────────────────────────────────────────── */
-const PAD = { l:48, r:10, t:10, b:28 };
-let hatchPattern = null;
-function getHatch(g){ if (hatchPattern) return hatchPattern;
-  const p = document.createElement('canvas'); p.width = p.height = 8; const pg = p.getContext('2d');
-  pg.strokeStyle = 'rgba(135,150,170,.4)'; pg.lineWidth = 1; pg.beginPath(); pg.moveTo(0,8); pg.lineTo(8,0); pg.stroke();
-  hatchPattern = g.createPattern(p, 'repeat'); return hatchPattern; }
-function niceStep(span){ const raw = span / 6, pow = Math.pow(10, Math.floor(Math.log10(raw))); return [1,2,5,10].map(m => m*pow).find(s => s >= raw) || pow*10; }
-function drawSection(){
-  const wrap = $('canvas-wrap'), cv = $('sect'), dpr = window.devicePixelRatio || 1;
-  const W = wrap.clientWidth, H = wrap.clientHeight; cv.width = W*dpr; cv.height = H*dpr;
-  const g = cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
-  if (!section) return;
-  const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b; if (plotW <= 0 || plotH <= 0) return;
-  const cols = section.width, rowsN = section.height, cw = plotW/cols, ch = plotH/rowsN;
-  for (let r = 0; r < rowsN; r++){ const row = section.values[r];
-    const yTop = Math.round(PAD.t + plotH - (r+1)*ch), yBot = Math.round(PAD.t + plotH - r*ch);
-    for (let c = 0; c < cols; c++){ const v = row[c]; if (v === null || v === undefined) continue;
-      const xL = Math.round(PAD.l + c*cw), xR = Math.round(PAD.l + (c+1)*cw);
-      g.fillStyle = colorOf(v); g.fillRect(xL, yTop, Math.max(1, xR-xL), Math.max(1, yBot-yTop)); } }
-  g.save(); g.beginPath(); g.moveTo(PAD.l, PAD.t + plotH);
-  for (let c = 0; c < cols; c++) g.lineTo(PAD.l + c*cw, PAD.t + plotH - (section.floor_km[c]/section.top_km)*plotH);
-  g.lineTo(PAD.l + plotW, PAD.t + plotH); g.closePath();
-  g.fillStyle = getHatch(g); g.fill(); g.strokeStyle = 'rgba(135,150,170,.55)'; g.setLineDash([3,3]); g.stroke(); g.restore();
-  g.strokeStyle = '#1b2a3c'; g.fillStyle = '#6f8095'; g.font = '10px "IBM Plex Mono",monospace'; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(PAD.l, PAD.t); g.lineTo(PAD.l, PAD.t+plotH); g.lineTo(PAD.l+plotW, PAD.t+plotH); g.stroke();
-  const topKm = section.top_km;
-  for (let km = 0; km <= topKm + .001; km += topKm > 8 ? 2 : 1){ const y = PAD.t + plotH - (km/topKm)*plotH;
-    g.strokeStyle = 'rgba(27,42,60,.75)'; g.beginPath(); g.moveTo(PAD.l, y); g.lineTo(PAD.l+plotW, y); g.stroke();
-    g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(km + ' км', PAD.l - 5, y); }
-  const Lkm = section.length_km, step = niceStep(Lkm);
-  for (let d = 0; d <= Lkm + .001; d += step){ const x = PAD.l + (d/Lkm)*plotW; g.textAlign = 'center'; g.textBaseline = 'top'; g.fillText(d.toFixed(0), x, PAD.t+plotH+6); }
-  g.textAlign = 'right'; g.fillText('км вдоль линии', PAD.l+plotW, PAD.t+plotH+16);
+function updateTimeInfo(){
+  const f=frames[frameIdx];
+  $('hdr-clock').innerHTML = f ? fmtTime(f.time) : '—';
+  $('time-info').innerHTML = f
+    ? `Кадр: <b>${fmtTime(f.time)}</b><br>продукт: ${activeKey==='nowcast'?'прогноз':'наблюдения'} · палитра Meteored`
+    : 'нет кадров';
+  $('panel-meta').textContent = f ? fmtTime(f.time) : '';
 }
-$('sect').addEventListener('mousemove', e => {
-  const out = $('readout'); if (!section){ out.textContent = ''; return; }
-  const wrap = $('canvas-wrap'), plotW = wrap.clientWidth-PAD.l-PAD.r, plotH = wrap.clientHeight-PAD.t-PAD.b;
-  const x = e.offsetX, y = e.offsetY;
-  if (x < PAD.l || x > PAD.l+plotW || y < PAD.t || y > PAD.t+plotH){ out.textContent = ''; return; }
-  const c = Math.min(section.width-1, Math.floor((x-PAD.l)/(plotW/section.width)));
-  const r = Math.min(section.height-1, Math.floor((PAD.t+plotH-y)/(plotH/section.height)));
-  const d = section.distance_km[c], alt = section.altitude_km[r], v = section.values[r][c];
-  out.textContent = v === null ? `${d.toFixed(1)} км · ${alt.toFixed(2)} км · нет данных` : `${d.toFixed(1)} км · ${alt.toFixed(2)} км · ${v} ${section.units}`;
-});
-$('sect').addEventListener('mouseleave', () => { $('readout').textContent = ''; });
 
-/* ── высота панели ──────────────────────────────────────────────────── */
-(function(){ const grab = $('grab'), panel = $('panel'); let drag = false;
-  grab.addEventListener('pointerdown', e => { drag = true; grab.classList.add('drag'); grab.setPointerCapture(e.pointerId); });
-  window.addEventListener('pointermove', e => { if (!drag) return;
-    panel.style.height = Math.max(150, Math.min(window.innerHeight*0.78, window.innerHeight - e.clientY)) + 'px'; drawSection(); });
-  window.addEventListener('pointerup', () => { drag = false; grab.classList.remove('drag'); });
+/* ── управление временем ───────────────────────────────────────────── */
+function onTime(){ stopAnim(); frameIdx=+$('time').value; updateRadar(); }
+function step(dir){ if(!frames.length) return; stopAnim();
+  frameIdx=(frameIdx+dir+frames.length)%frames.length; $('time').value=frameIdx; updateRadar(); }
+function togglePlay(){ playing?stopAnim():startAnim(); }
+function startAnim(){ if(!frames.length) return; playing=true; $('t-play').textContent='⏸'; $('t-play').classList.add('playing');
+  animTimer=setInterval(()=>{ frameIdx=(frameIdx+1)%frames.length; $('time').value=frameIdx; updateRadar(); }, 700); }
+function stopAnim(){ if(!playing) return; playing=false; clearInterval(animTimer); animTimer=null; $('t-play').textContent='▶'; $('t-play').classList.remove('playing'); }
+
+/* ── ЦАО-анимация ──────────────────────────────────────────────────── */
+function caoReload(manual){
+  const img=$('cao-gif'), base=CAO_URLS[caoSrcIdx];
+  $('cao-load').style.display=''; $('cao-load').textContent='загрузка анимации (~13 МБ)…';
+  img.onload=()=>{ $('cao-load').style.display='none'; const d=new Date();
+    $('cao-status').innerHTML='обновлено: <b>'+d.toLocaleTimeString('ru-RU')+'</b><br>окно ~3 ч, шаг ~10 мин'; };
+  img.onerror=()=>{ if(caoSrcIdx<CAO_URLS.length-1){ caoSrcIdx++; caoReload(manual); }
+    else { $('cao-load').textContent='анимация ЦАО недоступна из этой сети'; } };
+  img.src=base+(base.includes('?')?'&':'?')+'r='+Date.now();
+  if(manual) toast('Обновляю анимацию ЦАО…');
+}
+function showTab(w){ const r=w==='r';
+  $('tab-r').classList.toggle('on',r); $('tab-c').classList.toggle('on',!r);
+  $('r-view').style.display=r?'flex':'none'; $('cao-view').classList.toggle('on',!r);
+  if(!r && !$('cao-gif').getAttribute('src')) caoReload(false);
+  if(r && map) setTimeout(()=>map.invalidateSize(),50);
+}
+setInterval(()=>{ if($('cao-auto').checked) caoReload(false); }, CAO_REFRESH_MS);
+
+/* ── панель / меню ─────────────────────────────────────────────────── */
+(function(){ const grab=$('grab'),panel=$('panel'); let drag=false;
+  grab.addEventListener('pointerdown',e=>{drag=true;grab.classList.add('drag');grab.setPointerCapture(e.pointerId);});
+  window.addEventListener('pointermove',e=>{ if(!drag)return; panel.style.height=Math.max(140,Math.min(window.innerHeight*0.75,window.innerHeight-e.clientY))+'px'; if(map)map.invalidateSize(); });
+  window.addEventListener('pointerup',()=>{drag=false;grab.classList.remove('drag');});
 })();
-window.addEventListener('resize', () => { drawSection(); updateWmsOverlay(); });
+window.addEventListener('resize',()=>{ if(map)map.invalidateSize(); });
+function toggleDrawer(force){ const open=force!==undefined?force:!$('aside').classList.contains('open'); $('aside').classList.toggle('open',open); $('scrim').classList.toggle('on',open); }
 
-/* ── ссылка / меню ──────────────────────────────────────────────────── */
-function shareLink(){ if (pts.length < 2){ toast('Сначала проведите линию на карте', true); return; }
-  const u = location.href.split('?')[0] + `?line=${pts[0][0]},${pts[0][1]},${pts[1][0]},${pts[1][1]}&family=${family}&time=${encodeURIComponent($('time').value || '')}` + (currentLayerName ? `&layer=${encodeURIComponent(currentLayerName)}` : '');
-  const done = () => toast('Ссылка скопирована');
-  if (navigator.clipboard) navigator.clipboard.writeText(u).then(done).catch(() => prompt('Ссылка:', u)); else prompt('Ссылка:', u); }
-function toggleDrawer(force){ const open = force !== undefined ? force : !$('aside').classList.contains('open'); $('aside').classList.toggle('open', open); $('scrim').classList.toggle('on', open); }
-
-/* ── запуск ─────────────────────────────────────────────────────────── */
+/* ── запуск ────────────────────────────────────────────────────────── */
 async function boot(){
-  $('proxy-url').value = getUserProxy();
-  buildLayerList();
-  renderLayerLegend();
-
-  veil(true, 'Получение токена…');
-  const gotTok = await refreshToken();
-  if (gotTok){ $('proxy-st').className = 'proxy-st ok'; $('proxy-st').textContent = '✓ токен получен' + (getUserProxy() ? ' (ваш Worker)' : ' (публичный прокси)'); }
-  else { $('proxy-st').className = 'proxy-st bad'; $('proxy-st').textContent = '✗ токен недоступен — вставьте адрес своего Worker и нажмите «сохранить»'; }
-  setInterval(async () => { if (await refreshToken()){ updateWmsOverlay(); renderLayerLegend(); } }, 25000);
-
-  updateWmsOverlay();
-
-  try{ const h = await apiFetch('/health'); setStatus(!!h.ok, h.ok ? `${h.frames} кадров · скан ${fmtLocal(h.newest).slice(6)}` : 'архив недоступен'); }
-  catch(e){ setStatus(false, 'API nowcast недоступен'); }
-
-  let info = null;
-  try{ info = await apiFetch('/info'); showInfo(info); } catch(e){ $('radar-hint').textContent = 'инфо о радарах недоступно: ' + e.message; }
-
-  try{ const fr = await apiFetch('/frames?limit=200');
-    if (!Array.isArray(fr.frames)) throw new Error('API старше страницы');
-    frames = fr.frames; utcOff = fr.utc_offset_hours != null ? fr.utc_offset_hours : 3;
-    renderTimeSelect();
-  }catch(e){ toast('frames: ' + e.message, true); }
-
-  const deep = QP.get('line');
-  if (deep){ const nums = deep.split(',').map(Number); if (nums.length === 4 && nums.every(isFinite)){ pts = [[nums[0], nums[1]], [nums[2], nums[3]]]; drawLine(); } }
-  const deepTime = QP.get('time');
-  if (deepTime && frames.some(f => f.archive === deepTime)){ userPickedTime = true; $('time').value = deepTime; updateTimeLabel(); updateWmsOverlay(); }
-  if (info) renderFamilies(info.families || [], info.levels || {});
-
+  veil(true,'Загрузка радара…');
+  try{
+    await loadRainViewer();
+    setStatus(true, frames.length+' кадров · '+fmtTime(frames[frames.length-1]?.time||0).slice(0,5));
+  }catch(e){
+    setStatus(false,'RainViewer недоступен');
+    $('rv-note').textContent='не удалось загрузить метаданные: '+e.message;
+  }
   veil(false);
-  if (!gotTok) toast('Укажите свой CORS-прокси (Worker) слева — иначе данные nowcast не загрузятся.', true);
-  if (pts.length === 2) cut();
-
-  setInterval(async () => { try{ const fr = await apiFetch('/frames?limit=200'); const keep = $('time').value; frames = fr.frames; renderTimeSelect();
-    if (keep && frames.some(f => f.archive === keep)){ $('time').value = keep; updateTimeLabel(); } }catch(e){} }, 90000);
+  // автообновление метаданных раз в 5 мин
+  setInterval(async ()=>{ try{ await loadRainViewer(); }catch(e){} }, 5*60*1000);
 }
 
-$('t-prev').onclick = () => stepTime(+1);
-$('t-next').onclick = () => stepTime(-1);
-$('t-play').onclick = togglePlay;
-document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !/SELECT|INPUT|TEXTAREA/.test(document.activeElement.tagName)){ e.preventDefault(); togglePlay(); }
-  if (e.key === 'Escape') clearLine();
+$('t-prev').onclick=()=>step(-1);
+$('t-next').onclick=()=>step(1);
+$('t-play').onclick=togglePlay;
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space' && !/SELECT|INPUT|TEXTAREA/.test(document.activeElement.tagName)){ e.preventDefault(); togglePlay(); }
 });
 
-loadLeaflet(ok => {
-  if (ok){ try{ initMap(); }catch(e){ $('mapfail').style.display = 'block'; $('mapfail').textContent = 'карта: ' + e.message; } }
-  else { $('mapfail').style.display = 'block'; $('mapfail').textContent = 'Leaflet не загрузился (CDN заблокирован). Данные и сечение работают, но карта недоступна.'; }
-});
+if(window.L){ try{ initMap(); }catch(e){ $('mapfail').style.display='block'; $('mapfail').textContent='карта: '+e.message; } }
+else { $('mapfail').style.display='block'; $('mapfail').textContent='Leaflet не загрузился.'; }
 boot();
 </script>
 </body>
