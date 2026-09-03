@@ -1,8 +1,14 @@
-// Cloudflare Pages Function — CORS-прокси для nowcast.ru
+// Cloudflare Pages Function — CORS-прокси для nowcast.ru / meteoinfo.ru / meteorad.ru
 // Файл лежит в /functions/proxy.js → автоматически доступен на /proxy
 // Ничего настраивать не нужно: деплоится вместе с сайтом на Cloudflare Pages.
+// Заодно помогает пользователям, у которых напрямую заблокирован доступ к .ru-доменам
+// (например, из-за геоблокировки провайдером) — запрос идёт с серверов Cloudflare.
 
-const ALLOW_ORIGIN = 'https://www.nowcast.ru';
+const ALLOW_ORIGINS = new Set([
+  'https://www.nowcast.ru',
+  'https://meteoinfo.ru',
+  'https://meteorad.ru',
+]);
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -29,8 +35,8 @@ export async function onRequest(context) {
   } catch {
     return new Response('bad url', { status: 400, headers: CORS });
   }
-  if (parsed.origin !== ALLOW_ORIGIN) {
-    return new Response('only nowcast.ru allowed', { status: 403, headers: CORS });
+  if (!ALLOW_ORIGINS.has(parsed.origin)) {
+    return new Response('origin not allowed', { status: 403, headers: CORS });
   }
 
   try {
