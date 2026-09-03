@@ -60,7 +60,7 @@ select,input[type=text]{width:100%}
   font-size:.95rem;line-height:1;padding:0 3px;cursor:pointer;flex:none}
 .legend-float .lf-toggle:hover{color:#fff}
 .legend-float .lf-body{max-height:82vh;overflow:auto;background:#05080c;padding:8px}
-.legend-float .lf-body img{display:block;max-width:100%;height:auto}
+.legend-float .lf-body canvas{display:block;max-width:100%;height:auto}
 .legend-float.collapsed .lf-body{display:none}
 .check{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.66rem;color:var(--text);margin-top:8px;cursor:pointer;user-select:none}
 .check input{accent-color:var(--accent);margin:0}
@@ -226,7 +226,7 @@ select,input[type=text]{width:100%}
           <span class="lf-title" id="lf-title">Легенда</span>
           <button class="lf-toggle" id="lf-toggle" title="свернуть/развернуть">−</button>
         </div>
-        <div class="lf-body" id="lf-body"><img id="wms-legend-img" alt="Layer legend"></div>
+        <div class="lf-body" id="lf-body"><canvas id="wms-legend-canvas"></canvas></div>
       </div>
     </div>
     <div class="panel" id="panel">
@@ -498,17 +498,31 @@ function scheduleWms(){ if (wmsTimer || !map) return; wmsTimer = setTimeout(()=>
 
 /* ── легенда слоя карты (быстрый GetLegendGraphic) ──────────────────── */
 function renderLayerLegend(){
-  const card = $('legend-float'), img = $('wms-legend-img'), title = $('lf-title');
+  const card = $('legend-float'), canvas = $('wms-legend-canvas'), title = $('lf-title');
   if (!currentLayerName){ card.classList.remove('show'); return; }
   const layerDef = WMS_LAYERS.find(l => l.id === currentLayerName);
   title.textContent = layerDef ? layerDef.title : 'Легенда';
-  const build = viaProxy => {
-    let u = `${WMS}?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer=${encodeURIComponent(currentLayerName)}&format=image/png&STYLE=default`;
-    if (wmsToken) u += '&token=' + encodeURIComponent(wmsToken);
-    return viaProxy ? (proxyWrap(u) || PUBLIC_PROXIES[0](u)) : u;
+  let u = `${WMS}?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer=${encodeURIComponent(currentLayerName)}&format=image/png&STYLE=default`;
+  if (wmsToken) u += '&token=' + encodeURIComponent(wmsToken);
+  const img = new Image(); img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0);
+    try {
+      const id = ctx.getImageData(0, 0, canvas.width, canvas.height), d = id.data;
+      for (let i = 0; i < d.length; i += 4){
+        const r = d[i], g = d[i+1], b = d[i+2], a = d[i+3];
+        if (a === 0) continue;
+        // только тёмные почти-серые пиксели (текст подписей) — не трогаем цветные плашки шкалы
+        const isNearBlack = r < 80 && g < 80 && b < 80 && Math.abs(r-g) < 16 && Math.abs(g-b) < 16 && Math.abs(r-b) < 16;
+        if (isNearBlack){ d[i] = 240; d[i+1] = 240; d[i+2] = 240; }
+      }
+      ctx.putImageData(id, 0, 0);
+    } catch (e) { /* canvas оказался «запятнан» CORS — оставляем как есть */ }
+    card.classList.add('show');
   };
-  img.onerror = () => { if (!img._xp){ img._xp = true; img.src = build(true); } else card.classList.remove('show'); };
-  img._xp = false; img.src = build(false); card.classList.add('show');
+  img.onerror = () => { card.classList.remove('show'); };
+  img.src = proxyWrap(u);
 }
 $('lf-toggle').addEventListener('click', () => {
   const card = $('legend-float'), collapsed = card.classList.toggle('collapsed');
