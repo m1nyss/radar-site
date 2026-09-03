@@ -78,10 +78,21 @@ select,input[type=text]{width:100%}
 #map .hint{position:absolute;z-index:800;top:10px;left:50%;transform:translateX(-50%);background:rgba(10,17,27,.93);border:1px solid var(--line);border-radius:5px;padding:6px 12px;font-family:var(--mono);font-size:.68rem;color:var(--accent);pointer-events:none;white-space:nowrap}
 #map .mapfail{position:absolute;z-index:800;inset:auto 12px 12px 12px;background:rgba(10,17,27,.92);border:1px solid var(--bad);border-radius:5px;padding:8px 12px;font-family:var(--mono);font-size:.66rem;color:#ffc9cf;display:none}
 
-.grab{height:7px;flex:none;background:var(--line);cursor:row-resize;transition:background .15s}
-.grab:hover,.grab.drag{background:var(--accent)}
+.grab{display:none}
 
-.panel{height:320px;flex:none;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column}
+.panel{
+  position:fixed;left:0;top:0;width:640px;height:340px;
+  min-width:360px;min-height:200px;max-width:96vw;max-height:92vh;
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  box-shadow:0 18px 48px rgba(0,0,0,.55);
+  display:flex;flex-direction:column;z-index:900;overflow:hidden;
+}
+.panel .bar{cursor:move;user-select:none}
+.panel .bar button,.panel .bar select{cursor:pointer}
+.panel .resize-handle{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:2}
+.panel .resize-handle::after{content:'';position:absolute;right:4px;bottom:4px;width:9px;height:9px;
+  border-right:2px solid var(--muted);border-bottom:2px solid var(--muted)}
+.panel .resize-handle:hover::after{border-color:var(--accent)}
 .panel .bar{flex:none;display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:.68rem;flex-wrap:wrap}
 .panel .bar .t{color:var(--text)}
 .panel .bar .m{color:var(--muted)}
@@ -122,7 +133,6 @@ select,input[type=text]{width:100%}
   aside{width:100%;flex:none;max-height:46vh;border-right:none;border-bottom:1px solid var(--line)}
   main{flex-direction:column}
   button,select,input[type=text]{padding:9px 11px;font-size:.76rem}
-  .panel{height:46vh}
   #legend{width:76px;font-size:.55rem}
   #legend .sw{width:11px;height:9px}
   .panel .bar .readout{margin-left:0;width:100%}
@@ -200,9 +210,8 @@ select,input[type=text]{width:100%}
       <div class="hint" id="hint">кликните по карте — начало линии</div>
       <div class="mapfail" id="mapfail"></div>
     </div>
-    <div class="grab" id="grab"></div>
     <div class="panel" id="panel">
-      <div class="bar">
+      <div class="bar" id="panel-bar">
         <span class="tabs">
           <button id="tab-x" class="on" onclick="showTab('x')">сечение</button>
           <button id="tab-c" onclick="showTab('c')">ЦАО · анимация</button>
@@ -235,6 +244,7 @@ select,input[type=text]{width:100%}
           <a href="https://meteoinfo.ru/radanim" target="_blank" rel="noopener">открыть оригинал ↗</a>
         </div>
       </div>
+      <div class="resize-handle" id="panel-resize" title="изменить размер"></div>
     </div>
   </div>
 </main>
@@ -633,12 +643,50 @@ $('sect').addEventListener('mousemove', e => {
 });
 $('sect').addEventListener('mouseleave', () => { $('readout').textContent = ''; });
 
-/* ── высота панели ──────────────────────────────────────────────────── */
-(function(){ const grab = $('grab'), panel = $('panel'); let drag = false;
-  grab.addEventListener('pointerdown', e => { drag = true; grab.classList.add('drag'); grab.setPointerCapture(e.pointerId); });
-  window.addEventListener('pointermove', e => { if (!drag) return;
-    panel.style.height = Math.max(150, Math.min(window.innerHeight*0.78, window.innerHeight - e.clientY)) + 'px'; drawSection(); });
-  window.addEventListener('pointerup', () => { drag = false; grab.classList.remove('drag'); });
+/* ── плавающее окно сечения: перетаскивание + изменение размера ─────── */
+(function(){
+  const panel = $('panel'), bar = $('panel-bar'), rh = $('panel-resize');
+  let mode = null, sx = 0, sy = 0, ox = 0, oy = 0, ow = 0, oh = 0;
+
+  function place(){
+    const narrow = window.innerWidth <= 840;
+    const w = narrow ? Math.round(window.innerWidth * 0.96) : Math.min(680, Math.round(window.innerWidth * 0.5));
+    const h = narrow ? Math.round(window.innerHeight * 0.46) : Math.min(380, Math.round(window.innerHeight * 0.48));
+    panel.style.width = w + 'px'; panel.style.height = h + 'px';
+    panel.style.left = Math.max(8, window.innerWidth - w - (narrow ? 8 : 24)) + 'px';
+    panel.style.top = Math.max(8, window.innerHeight - h - (narrow ? 8 : 24)) + 'px';
+  }
+  place();
+
+  function clamp(){
+    const maxL = window.innerWidth - 60, maxT = window.innerHeight - 40;
+    let l = parseFloat(panel.style.left) || 0, t = parseFloat(panel.style.top) || 0;
+    l = Math.min(Math.max(0, l), maxL); t = Math.min(Math.max(0, t), maxT);
+    panel.style.left = l + 'px'; panel.style.top = t + 'px';
+  }
+
+  bar.addEventListener('pointerdown', e => {
+    if (e.target.closest('button, select')) return;
+    mode = 'move'; sx = e.clientX; sy = e.clientY; ox = panel.offsetLeft; oy = panel.offsetTop;
+    bar.setPointerCapture(e.pointerId);
+  });
+  rh.addEventListener('pointerdown', e => {
+    mode = 'resize'; sx = e.clientX; sy = e.clientY; ow = panel.offsetWidth; oh = panel.offsetHeight;
+    rh.setPointerCapture(e.pointerId); e.stopPropagation();
+  });
+  window.addEventListener('pointermove', e => {
+    if (mode === 'move'){
+      panel.style.left = (ox + e.clientX - sx) + 'px';
+      panel.style.top = (oy + e.clientY - sy) + 'px';
+    } else if (mode === 'resize'){
+      const maxW = window.innerWidth - panel.offsetLeft - 4, maxH = window.innerHeight - panel.offsetTop - 4;
+      panel.style.width = Math.min(maxW, Math.max(360, ow + e.clientX - sx)) + 'px';
+      panel.style.height = Math.min(maxH, Math.max(200, oh + e.clientY - sy)) + 'px';
+      drawSection();
+    }
+  });
+  window.addEventListener('pointerup', () => { mode = null; });
+  window.addEventListener('resize', clamp);
 })();
 window.addEventListener('resize', () => { drawSection(); updateWmsOverlay(); });
 
