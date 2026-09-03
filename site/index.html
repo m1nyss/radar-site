@@ -280,7 +280,8 @@ const API       = HOST + '/xsection';
 const WMS       = HOST + '/baltrad_wsgi';
 const TOKEN_URL = HOST + '/get_token';
 
-const CAO_URLS = [ 'https://meteoinfo.ru/hmc-output/rmap/phenomena.gif', 'https://meteorad.ru/static/phenomena.gif' ];
+const CAO_BASES = [ 'https://meteoinfo.ru/hmc-output/rmap/phenomena.gif', 'https://meteorad.ru/static/phenomena.gif' ];
+function caoUrlsList(){ const list = []; CAO_BASES.forEach(b => { list.push(b); list.push(proxyWrap(b)); }); return list; }
 const CAO_REFRESH_MS = 10 * 60 * 1000;
 
 const QP = new URLSearchParams(location.search);
@@ -347,7 +348,9 @@ async function refreshToken(){
 async function apiFetch(path, retried){
   const sep = path.includes('?') ? '&' : '?';
   const url = API + path + sep + 'token=' + encodeURIComponent(wmsToken || '');
-  const res = await fetch(url, {cache:'no-store'});
+  let res;
+  try { res = await fetch(url, {cache:'no-store'}); }
+  catch (netErr) { res = await fetch(proxyWrap(url), {cache:'no-store'}); }
   if (res.status === 403 && !retried){ await refreshToken(); return apiFetch(path, true); }
   const data = await res.json().catch(()=>({}));
   if (!res.ok || data.error){ const e = new Error(data.error || ('HTTP ' + res.status)); e.detail = data; throw e; }
@@ -526,11 +529,11 @@ function onWmsOpacity(){ const v = +$('wms-op').value; $('wms-op-val').textConte
 
 /* ── ЦАО-анимация (meteoinfo.ru/radanim) ────────────────────────────── */
 function caoReload(manual){
-  const img = $('cao-gif'), base = CAO_URLS[caoSrcIdx];
+  const img = $('cao-gif'), urls = caoUrlsList(), base = urls[caoSrcIdx];
   $('cao-load').style.display = ''; $('cao-load').textContent = 'загрузка анимации (~13 МБ)…';
   img.onload = () => { $('cao-load').style.display = 'none'; const d = new Date();
     $('cao-status').innerHTML = 'обновлено: <b>' + d.toLocaleTimeString('ru-RU') + '</b><br>кадров: ~19 (шаг 10 мин), окно ~3 ч'; };
-  img.onerror = () => { if (caoSrcIdx < CAO_URLS.length - 1){ caoSrcIdx++; caoReload(manual); }
+  img.onerror = () => { if (caoSrcIdx < urls.length - 1){ caoSrcIdx++; caoReload(manual); }
     else { $('cao-load').textContent = 'анимация ЦАО недоступна из этой сети'; $('cao-status').textContent = 'источник: meteoinfo.ru/hmc-output/rmap/phenomena.gif'; } };
   img.src = base + (base.includes('?') ? '&' : '?') + 'r=' + Date.now();
   if (manual) toast('Обновляю анимацию ЦАО…');
