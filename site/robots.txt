@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ЗАМЕНИ-НА-СВОЙ-ДОМЕН/sitemap.xml
