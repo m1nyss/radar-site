@@ -120,17 +120,6 @@ select,input[type=text]{width:100%}
 #legend .sw{width:14px;height:11px;border-radius:2px;flex:none;border:1px solid rgba(255,255,255,.14)}
 #legend .lb{color:var(--muted);white-space:nowrap}
 
-/* ── ЦАО-анимация как отдельный радарный «слой» на весь экран карты ──── */
-.cao-overlay{position:absolute;inset:0;z-index:780;display:none;flex-direction:column;background:#04070c}
-.cao-overlay.show{display:flex}
-.cao-overlay .cao-frame{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.cao-overlay .cao-frame img{max-width:100%;max-height:100%}
-.cao-overlay .cao-load{position:absolute;font-family:var(--mono);font-size:.72rem;color:var(--accent)}
-.cao-overlay .cao-bar{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;
-  border-top:1px solid var(--line);background:var(--panel);font-family:var(--mono);font-size:.66rem;color:var(--muted)}
-.cao-overlay .cao-bar a{color:var(--accent);text-decoration:none}
-.cao-overlay .cao-bar a:hover{text-decoration:underline}
-
 .veil{position:fixed;inset:0;background:rgba(7,11,18,.78);z-index:1200;display:none;align-items:center;justify-content:center;flex-direction:column;gap:13px;font-family:var(--mono);font-size:.78rem;color:var(--accent)}
 .veil.on{display:flex}
 .spin{width:28px;height:28px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite}
@@ -225,18 +214,6 @@ select,input[type=text]{width:100%}
         </div>
         <div class="lf-body" id="lf-body"><canvas id="wms-legend-canvas"></canvas></div>
       </div>
-      <div class="cao-overlay" id="cao-overlay">
-        <div class="cao-frame">
-          <span class="cao-load" id="cao-load">загрузка анимации (~13 МБ)…</span>
-          <img id="cao-gif" alt="Анимированная карта явлений погоды за последние 3 часа (ЦАО)">
-        </div>
-        <div class="cao-bar">
-          <span id="cao-status">обновление…</span>
-          <button onclick="caoReload(true)">обновить</button>
-          <label class="check" style="margin:0"><input type="checkbox" id="cao-auto" checked>авто</label>
-          <a href="https://meteoinfo.ru/radanim" target="_blank" rel="noopener">meteoinfo.ru/radanim ↗</a>
-        </div>
-      </div>
     </div>
     <div class="panel" id="panel">
       <div class="bar" id="panel-bar">
@@ -267,10 +244,6 @@ const API       = HOST + '/xsection';
 const WMS       = HOST + '/baltrad_wsgi';
 const TOKEN_URL = HOST + '/get_token';
 
-const CAO_BASES = [ 'https://meteoinfo.ru/hmc-output/rmap/phenomena.gif', 'https://meteorad.ru/static/phenomena.gif' ];
-function caoUrlsList(){ const list = []; CAO_BASES.forEach(b => { list.push(b); list.push(proxyWrap(b)); }); return list; }
-const CAO_REFRESH_MS = 10 * 60 * 1000;
-
 const QP = new URLSearchParams(location.search);
 const FAMILIES_RU = { dbz:'Отражаемость', zdr:'ZDR', vel:'Скорость' };
 
@@ -289,7 +262,6 @@ const WMS_LAYERS = [
   { id:'bufr_precip',     title:'Precipitation intensity (BUFR)' },
 ];
 const PREFERRED = ['bufr_dbz1','bufr_phenomena'];
-const CAO_LAYER_ID = '__cao_anim__';
 
 /* ── состояние ────────────────────────────────────────────────────── */
 let wmsToken = null;
@@ -301,7 +273,6 @@ let playing = false, animIdx = null, animTimer = null;
 let map = null, radarLayer = null, coverageLayer = null, lineLayer = null;
 let wmsOverlay = null, wmsTimer = null, wmsViaProxy = false;
 let currentLayerName = QP.get('layer') || '';
-let caoSrcIdx = 0;
 
 /* ── CORS-прокси ────────────────────────────────────────────────────── */
 const PUBLIC_PROXIES = [
@@ -425,8 +396,7 @@ function initMap(){
   osm.on('tileerror', () => { if (++tileErrs >= 4 && !switched){ switched = true; osm.remove();
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:12, minZoom:3, subdomains:'abcd', attribution:'&copy; OpenStreetMap · &copy; CARTO · radar: nowcast.ru, meteoinfo.ru' }).addTo(map); } });
   radarLayer = L.layerGroup().addTo(map); coverageLayer = L.layerGroup().addTo(map); lineLayer = L.layerGroup().addTo(map);
-  map.on('click', e => { if (currentLayerName === CAO_LAYER_ID){ toast('Сечение недоступно на слое «ЦАО · анимация» — переключитесь на радарный слой.'); return; }
-    if (pts.length >= 2) pts = []; pts.push([+e.latlng.lng.toFixed(4), +e.latlng.lat.toFixed(4)]); ports = null; drawLine();
+  map.on('click', e => { if (pts.length >= 2) pts = []; pts.push([+e.latlng.lng.toFixed(4), +e.latlng.lat.toFixed(4)]); ports = null; drawLine();
     if (pts.length === 2) cut(); });
   map.on('moveend zoomend', scheduleWms);
   addRadarMarkers(infoRadars); drawLine(); updateWmsOverlay();
@@ -450,7 +420,6 @@ function toggleCoverage(){ if (!map) return; coverageLayer.clearLayers();
 
 /* ── линия ─────────────────────────────────────────────────────────── */
 function drawLine(){ if (!lineLayer) return; lineLayer.clearLayers();
-  if (currentLayerName === CAO_LAYER_ID){ $('hint').style.display = 'none'; return; }
   pts.forEach(p => lineLayer.addLayer(L.circleMarker([p[1], p[0]], { radius:6, color:'#ff8a3d', weight:2, fillColor:'#0d1520', fillOpacity:1 })));
   if (pts.length === 2) lineLayer.addLayer(L.polyline(pts.map(p => [p[1], p[0]]), { color:'#ff8a3d', weight:2.5, dashArray:'7 5' }));
   $('hint').textContent = pts.length === 0 ? 'кликните по карте — начало линии' : pts.length === 1 ? 'кликните ещё раз — конец линии' : 'сечение строится…';
@@ -477,7 +446,6 @@ function attachOverlayErr(){ if (!wmsOverlay) return; const el = wmsOverlay.getE
     if (!wmsViaProxy){ wmsViaProxy = true; updateWmsOverlay(); } else $('wms-note').textContent = 'radar layer failed to load'; }); } }
 function updateWmsOverlay(){ if (!map) return;
   const note = $('wms-note'), frame = selectedFrame();
-  if (currentLayerName === CAO_LAYER_ID){ if (wmsOverlay){ wmsOverlay.remove(); wmsOverlay = null; } note.textContent = ''; return; }
   if (!currentLayerName || !frame){ if (wmsOverlay){ wmsOverlay.remove(); wmsOverlay = null; } note.textContent = ''; return; }
   note.textContent = '';
   const built = wmsBuildUrl(); if (!built) return;
@@ -525,11 +493,6 @@ function loadLegendImage(url){
 function renderLayerLegend(){
   const title = $('lf-title');
   if (!currentLayerName){ $('legend-float').classList.remove('show'); return; }
-  if (currentLayerName === CAO_LAYER_ID){
-    title.textContent = 'Явления погоды (ЦАО)';
-    loadLegendImage('https://meteoinfo.ru/images/fact/radar-legenda.gif');
-    return;
-  }
   const layerDef = WMS_LAYERS.find(l => l.id === currentLayerName);
   title.textContent = layerDef ? layerDef.title : 'Легенда';
   let u = `${WMS}?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer=${encodeURIComponent(currentLayerName)}&format=image/png&STYLE=default`;
@@ -545,39 +508,17 @@ $('lf-toggle').addEventListener('click', () => {
 function buildLayerList(){
   const sel = $('wms-layer');
   sel.innerHTML = '<option value="">off</option>' +
-    WMS_LAYERS.map(l => `<option value="${esc(l.id)}">${esc(l.title)}</option>`).join('') +
-    `<option value="${CAO_LAYER_ID}">ЦАО · анимация (meteoinfo.ru)</option>`;
+    WMS_LAYERS.map(l => `<option value="${esc(l.id)}">${esc(l.title)}</option>`).join('');
   let wanted = currentLayerName;
-  if (!wanted || (!WMS_LAYERS.some(l => l.id === wanted) && wanted !== CAO_LAYER_ID)) wanted = PREFERRED[0];
+  if (!wanted || !WMS_LAYERS.some(l => l.id === wanted)) wanted = PREFERRED[0];
   currentLayerName = wanted; sel.value = wanted;
 }
-function onWmsLayer(){
-  currentLayerName = $('wms-layer').value;
-  if (currentLayerName === CAO_LAYER_ID){
-    $('cao-overlay').classList.add('show'); updateWmsOverlay(); caoReload(false);
-  } else {
-    $('cao-overlay').classList.remove('show'); updateWmsOverlay();
-  }
-  drawLine();
-  renderLayerLegend();
-}
+function onWmsLayer(){ currentLayerName = $('wms-layer').value; updateWmsOverlay(); renderLayerLegend(); }
 function onWmsOpacity(){ const v = +$('wms-op').value; $('wms-op-val').textContent = Math.round(v*100) + '%'; if (wmsOverlay) wmsOverlay.setOpacity(v); }
 
-/* ── ЦАО-анимация (meteoinfo.ru/radanim) ────────────────────────────── */
-function caoReload(manual){
-  const img = $('cao-gif'), urls = caoUrlsList(), base = urls[caoSrcIdx];
-  $('cao-load').style.display = ''; $('cao-load').textContent = 'загрузка анимации (~13 МБ)…';
-  img.onload = () => { $('cao-load').style.display = 'none'; const d = new Date();
-    $('cao-status').innerHTML = 'обновлено: <b>' + d.toLocaleTimeString('ru-RU') + '</b><br>кадров: ~19 (шаг 10 мин), окно ~3 ч'; };
-  img.onerror = () => { if (caoSrcIdx < urls.length - 1){ caoSrcIdx++; caoReload(manual); }
-    else { $('cao-load').textContent = 'анимация ЦАО недоступна из этой сети'; $('cao-status').textContent = 'источник: meteoinfo.ru/hmc-output/rmap/phenomena.gif'; } };
-  img.src = base + (base.includes('?') ? '&' : '?') + 'r=' + Date.now();
-  if (manual) toast('Обновляю анимацию ЦАО…');
-}
 function openPanel(){ $('panel').classList.add('open'); }
 function closePanel(){ $('panel').classList.remove('open'); }
 $('panel-close').addEventListener('click', closePanel);
-setInterval(() => { if (currentLayerName === CAO_LAYER_ID && $('cao-auto').checked) caoReload(false); }, CAO_REFRESH_MS);
 
 /* ── кадры, время, анимация nowcast ─────────────────────────────────── */
 function selectedFrame(){ const v = $('time').value; return frames.find(f => f.archive === v) || frames[0] || null; }
@@ -762,7 +703,6 @@ function shareLink(){ if (pts.length < 2){ toast('Сначала проведи�
 async function boot(){
   $('proxy-url').value = getUserProxy();
   buildLayerList();
-  if (currentLayerName === CAO_LAYER_ID){ $('cao-overlay').classList.add('show'); caoReload(false); }
   renderLayerLegend();
 
   veil(true, 'Получение токена…');
