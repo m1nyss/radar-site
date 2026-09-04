@@ -469,16 +469,33 @@ function loadLegendImage(url){
       canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
       const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0);
       try {
-        const id = ctx.getImageData(0, 0, canvas.width, canvas.height), d = id.data;
-        // цветные плашки шкалы всегда стоят в узкой колонке слева — их не трогаем вовсе,
-        // а всё справа (фон + текст подписей) инвертируем целиком: было чёрным по белому,
-        // становится белым по чёрному, чётко и без блёклых полутонов
-        const swatchColW = Math.round(canvas.width * 0.16);
-        for (let y = 0; y < canvas.height; y++){
-          for (let x = swatchColW; x < canvas.width; x++){
-            const i = (y * canvas.width + x) * 4;
-            if (d[i+3] === 0) continue;
-            d[i] = 255 - d[i]; d[i+1] = 255 - d[i+1]; d[i+2] = 255 - d[i+2];
+        const id = ctx.getImageData(0, 0, canvas.width, canvas.height), d = id.data, W = canvas.width, H = canvas.height;
+        // цветную плашку в каждой строке ищем динамически (однородный широкий отрезок,
+        // заметно отличающийся от белого фона) — так работает для любой ширины картинки,
+        // не завязано на угаданный процент. Всё остальное (фон + текст) инвертируем.
+        for (let y = 0; y < H; y++){
+          let x = 0;
+          while (x < W){
+            const i0 = (y * W + x) * 4;
+            if (d[i0+3] === 0){ x++; continue; }
+            const r0 = d[i0], g0 = d[i0+1], b0 = d[i0+2];
+            let end = x + 1;
+            while (end < W){
+              const j = (y * W + end) * 4;
+              if (d[j+3] === 0) break;
+              if (Math.abs(d[j]-r0) > 10 || Math.abs(d[j+1]-g0) > 10 || Math.abs(d[j+2]-b0) > 10) break;
+              end++;
+            }
+            const runLen = end - x, distFromWhite = (255-r0) + (255-g0) + (255-b0);
+            const isSwatch = runLen >= 8 && distFromWhite > 20;
+            if (!isSwatch){
+              for (let xx = x; xx < end; xx++){
+                const k = (y * W + xx) * 4;
+                if (d[k+3] === 0) continue;
+                d[k] = 255 - d[k]; d[k+1] = 255 - d[k+1]; d[k+2] = 255 - d[k+2];
+              }
+            }
+            x = end;
           }
         }
         ctx.putImageData(id, 0, 0);
