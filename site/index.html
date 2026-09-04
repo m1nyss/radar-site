@@ -121,7 +121,7 @@ select,input[type=text]{width:100%}
 #legend .lb{color:var(--muted);white-space:nowrap}
 
 /* ── ЦАО-анимация как отдельный радарный «слой» на весь экран карты ──── */
-.cao-overlay{position:absolute;inset:0;z-index:600;display:none;flex-direction:column;background:#04070c}
+.cao-overlay{position:absolute;inset:0;z-index:780;display:none;flex-direction:column;background:#04070c}
 .cao-overlay.show{display:flex}
 .cao-overlay .cao-frame{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .cao-overlay .cao-frame img{max-width:100%;max-height:100%}
@@ -425,7 +425,8 @@ function initMap(){
   osm.on('tileerror', () => { if (++tileErrs >= 4 && !switched){ switched = true; osm.remove();
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom:12, minZoom:3, subdomains:'abcd', attribution:'&copy; OpenStreetMap · &copy; CARTO · radar: nowcast.ru, meteoinfo.ru' }).addTo(map); } });
   radarLayer = L.layerGroup().addTo(map); coverageLayer = L.layerGroup().addTo(map); lineLayer = L.layerGroup().addTo(map);
-  map.on('click', e => { if (pts.length >= 2) pts = []; pts.push([+e.latlng.lng.toFixed(4), +e.latlng.lat.toFixed(4)]); ports = null; drawLine();
+  map.on('click', e => { if (currentLayerName === CAO_LAYER_ID){ toast('Сечение недоступно на слое «ЦАО · анимация» — переключитесь на радарный слой.'); return; }
+    if (pts.length >= 2) pts = []; pts.push([+e.latlng.lng.toFixed(4), +e.latlng.lat.toFixed(4)]); ports = null; drawLine();
     if (pts.length === 2) cut(); });
   map.on('moveend zoomend', scheduleWms);
   addRadarMarkers(infoRadars); drawLine(); updateWmsOverlay();
@@ -449,6 +450,7 @@ function toggleCoverage(){ if (!map) return; coverageLayer.clearLayers();
 
 /* ── линия ─────────────────────────────────────────────────────────── */
 function drawLine(){ if (!lineLayer) return; lineLayer.clearLayers();
+  if (currentLayerName === CAO_LAYER_ID){ $('hint').style.display = 'none'; return; }
   pts.forEach(p => lineLayer.addLayer(L.circleMarker([p[1], p[0]], { radius:6, color:'#ff8a3d', weight:2, fillColor:'#0d1520', fillOpacity:1 })));
   if (pts.length === 2) lineLayer.addLayer(L.polyline(pts.map(p => [p[1], p[0]]), { color:'#ff8a3d', weight:2.5, dashArray:'7 5' }));
   $('hint').textContent = pts.length === 0 ? 'кликните по карте — начало линии' : pts.length === 1 ? 'кликните ещё раз — конец линии' : 'сечение строится…';
@@ -500,12 +502,16 @@ function loadLegendImage(url){
       const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0);
       try {
         const id = ctx.getImageData(0, 0, canvas.width, canvas.height), d = id.data;
-        for (let i = 0; i < d.length; i += 4){
-          const r = d[i], g = d[i+1], b = d[i+2], a = d[i+3];
-          if (a === 0) continue;
-          // только тёмные почти-серые пиксели (текст подписей) — не трогаем цветные плашки шкалы
-          const isNearBlack = r < 80 && g < 80 && b < 80 && Math.abs(r-g) < 16 && Math.abs(g-b) < 16 && Math.abs(r-b) < 16;
-          if (isNearBlack){ d[i] = 240; d[i+1] = 240; d[i+2] = 240; }
+        // цветные плашки шкалы всегда стоят в узкой колонке слева — их не трогаем вовсе,
+        // а всё справа (фон + текст подписей) инвертируем целиком: было чёрным по белому,
+        // становится белым по чёрному, чётко и без блёклых полутонов
+        const swatchColW = Math.round(canvas.width * 0.16);
+        for (let y = 0; y < canvas.height; y++){
+          for (let x = swatchColW; x < canvas.width; x++){
+            const i = (y * canvas.width + x) * 4;
+            if (d[i+3] === 0) continue;
+            d[i] = 255 - d[i]; d[i+1] = 255 - d[i+1]; d[i+2] = 255 - d[i+2];
+          }
         }
         ctx.putImageData(id, 0, 0);
       } catch (e) { /* канвас оказался «запятнан» CORS — оставляем как есть */ }
@@ -552,6 +558,7 @@ function onWmsLayer(){
   } else {
     $('cao-overlay').classList.remove('show'); updateWmsOverlay();
   }
+  drawLine();
   renderLayerLegend();
 }
 function onWmsOpacity(){ const v = +$('wms-op').value; $('wms-op-val').textContent = Math.round(v*100) + '%'; if (wmsOverlay) wmsOverlay.setOpacity(v); }
