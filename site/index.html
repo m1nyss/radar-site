@@ -97,8 +97,9 @@ select,input[type=text]{width:100%}
   min-width:360px;min-height:200px;max-width:96vw;max-height:92vh;
   background:var(--panel);border:1px solid var(--line);border-radius:9px;
   box-shadow:0 18px 48px rgba(0,0,0,.55);
-  display:flex;flex-direction:column;z-index:900;overflow:hidden;
+  display:none;flex-direction:column;z-index:900;overflow:hidden;
 }
+.panel.open{display:flex}
 .panel .bar{cursor:move;user-select:none}
 .panel .bar button,.panel .bar select{cursor:pointer}
 .panel .resize-handle{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;z-index:2}
@@ -109,8 +110,8 @@ select,input[type=text]{width:100%}
 .panel .bar .t{color:var(--text)}
 .panel .bar .m{color:var(--muted)}
 .panel .bar .readout{margin-left:auto;color:var(--accent)}
-.panel .bar .tabs{display:flex;gap:4px}
-.panel .bar .tabs button{padding:4px 9px;font-size:.64rem}
+.panel .bar .panel-close{background:none;border:none;color:var(--muted);font-size:.9rem;line-height:1;padding:0 3px;cursor:pointer;flex:none}
+.panel .bar .panel-close:hover{color:var(--bad)}
 .plot{flex:1;display:flex;min-height:0}
 #canvas-wrap{flex:1;position:relative;min-width:0}
 #sect{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
@@ -119,18 +120,16 @@ select,input[type=text]{width:100%}
 #legend .sw{width:14px;height:11px;border-radius:2px;flex:none;border:1px solid rgba(255,255,255,.14)}
 #legend .lb{color:var(--muted);white-space:nowrap}
 
-#cao-view{flex:1;display:none;min-height:0}
-#cao-view.on{display:flex}
-#cao-view .gif-wrap{flex:1;position:relative;min-width:0;background:#04070c;display:flex;align-items:center;justify-content:center;overflow:hidden}
-#cao-gif{max-width:100%;max-height:100%}
-#cao-view .gif-load{position:absolute;font-family:var(--mono);font-size:.7rem;color:var(--accent)}
-#cao-view .side{width:230px;flex:none;border-left:1px solid var(--line);padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:9px}
-#cao-view .side h3{margin:0;font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);font-weight:600}
-#cao-view .side .st{font-family:var(--mono);font-size:.62rem;color:var(--muted);line-height:1.6}
-#cao-view .side .st b{color:var(--text);font-weight:500}
-#cao-legend{width:100%;height:auto;background:#dfe7ee;border-radius:5px;padding:4px}
-#cao-view a{color:var(--accent);font-family:var(--mono);font-size:.64rem;text-decoration:none}
-#cao-view a:hover{text-decoration:underline}
+/* ── ЦАО-анимация как отдельный радарный «слой» на весь экран карты ──── */
+.cao-overlay{position:absolute;inset:0;z-index:600;display:none;flex-direction:column;background:#04070c}
+.cao-overlay.show{display:flex}
+.cao-overlay .cao-frame{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cao-overlay .cao-frame img{max-width:100%;max-height:100%}
+.cao-overlay .cao-load{position:absolute;font-family:var(--mono);font-size:.72rem;color:var(--accent)}
+.cao-overlay .cao-bar{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;
+  border-top:1px solid var(--line);background:var(--panel);font-family:var(--mono);font-size:.66rem;color:var(--muted)}
+.cao-overlay .cao-bar a{color:var(--accent);text-decoration:none}
+.cao-overlay .cao-bar a:hover{text-decoration:underline}
 
 .veil{position:fixed;inset:0;background:rgba(7,11,18,.78);z-index:1200;display:none;align-items:center;justify-content:center;flex-direction:column;gap:13px;font-family:var(--mono);font-size:.78rem;color:var(--accent)}
 .veil.on{display:flex}
@@ -149,8 +148,6 @@ select,input[type=text]{width:100%}
   .legend-float{width:auto;max-width:62vw;top:8px;right:8px}
   #legend .sw{width:11px;height:9px}
   .panel .bar .readout{margin-left:0;width:100%}
-  #cao-view.on{flex-direction:column}
-  #cao-view .side{width:100%;flex:1;border-left:none;border-top:1px solid var(--line)}
 }
 </style>
 </head>
@@ -228,40 +225,30 @@ select,input[type=text]{width:100%}
         </div>
         <div class="lf-body" id="lf-body"><canvas id="wms-legend-canvas"></canvas></div>
       </div>
+      <div class="cao-overlay" id="cao-overlay">
+        <div class="cao-frame">
+          <span class="cao-load" id="cao-load">загрузка анимации (~13 МБ)…</span>
+          <img id="cao-gif" alt="Анимированная карта явлений погоды за последние 3 часа (ЦАО)">
+        </div>
+        <div class="cao-bar">
+          <span id="cao-status">обновление…</span>
+          <button onclick="caoReload(true)">обновить</button>
+          <label class="check" style="margin:0"><input type="checkbox" id="cao-auto" checked>авто</label>
+          <a href="https://meteoinfo.ru/radanim" target="_blank" rel="noopener">meteoinfo.ru/radanim ↗</a>
+        </div>
+      </div>
     </div>
     <div class="panel" id="panel">
       <div class="bar" id="panel-bar">
-        <span class="tabs">
-          <button id="tab-x" class="on" onclick="showTab('x')">сечение</button>
-          <button id="tab-c" onclick="showTab('c')">ЦАО · анимация</button>
-        </span>
         <span class="t" id="sec-title">Сечение не построено</span>
         <span class="m" id="sec-meta"></span>
         <span class="readout" id="readout"></span>
+        <button class="panel-close" id="panel-close" title="закрыть">✕</button>
       </div>
 
       <div class="plot" id="x-view">
         <div id="canvas-wrap"><canvas id="sect"></canvas></div>
         <div id="legend"><div class="lb">Легенда появится вместе с сечением.</div></div>
-      </div>
-
-      <div id="cao-view">
-        <div class="gif-wrap">
-          <span class="gif-load" id="cao-load">загрузка анимации (~13 МБ)…</span>
-          <img id="cao-gif" alt="Анимированная карта явлений погоды за последние 3 часа (ЦАО)">
-        </div>
-        <div class="side">
-          <h3>meteoinfo.ru / radanim</h3>
-          <div class="st">Анимированная карта явлений погоды за последние ~3 часа по радарным наблюдениям. Источник: <b>Центральная аэрологическая обсерватория</b>.</div>
-          <div class="st" id="cao-status">обновление…</div>
-          <div class="row">
-            <button onclick="caoReload(true)">обновить</button>
-            <label class="check" style="margin:0"><input type="checkbox" id="cao-auto" checked>авто</label>
-          </div>
-          <h3>Легенда</h3>
-          <img id="cao-legend" alt="Легенда радарных явлений" src="https://meteoinfo.ru/images/fact/radar-legenda.gif">
-          <a href="https://meteoinfo.ru/radanim" target="_blank" rel="noopener">открыть оригинал ↗</a>
-        </div>
       </div>
       <div class="resize-handle" id="panel-resize" title="изменить размер"></div>
     </div>
@@ -302,6 +289,7 @@ const WMS_LAYERS = [
   { id:'bufr_precip',     title:'Precipitation intensity (BUFR)' },
 ];
 const PREFERRED = ['bufr_dbz1','bufr_phenomena'];
+const CAO_LAYER_ID = '__cao_anim__';
 
 /* ── состояние ────────────────────────────────────────────────────── */
 let wmsToken = null;
@@ -465,7 +453,7 @@ function drawLine(){ if (!lineLayer) return; lineLayer.clearLayers();
   if (pts.length === 2) lineLayer.addLayer(L.polyline(pts.map(p => [p[1], p[0]]), { color:'#ff8a3d', weight:2.5, dashArray:'7 5' }));
   $('hint').textContent = pts.length === 0 ? 'кликните по карте — начало линии' : pts.length === 1 ? 'кликните ещё раз — конец линии' : 'сечение строится…';
   $('hint').style.display = pts.length >= 2 ? 'none' : ''; }
-function clearLine(){ stopAnim(); pts = []; ports = null; section = null; drawLine(); drawSection(); renderLegend([]);
+function clearLine(){ closePanel(); stopAnim(); pts = []; ports = null; section = null; drawLine(); drawSection(); renderLegend([]);
   $('sec-title').textContent = 'Сечение не построено'; $('sec-meta').textContent = ''; $('hint').style.display = ''; }
 
 /* ── радарный слой WMS ──────────────────────────────────────────────── */
@@ -487,6 +475,7 @@ function attachOverlayErr(){ if (!wmsOverlay) return; const el = wmsOverlay.getE
     if (!wmsViaProxy){ wmsViaProxy = true; updateWmsOverlay(); } else $('wms-note').textContent = 'radar layer failed to load'; }); } }
 function updateWmsOverlay(){ if (!map) return;
   const note = $('wms-note'), frame = selectedFrame();
+  if (currentLayerName === CAO_LAYER_ID){ if (wmsOverlay){ wmsOverlay.remove(); wmsOverlay = null; } note.textContent = ''; return; }
   if (!currentLayerName || !frame){ if (wmsOverlay){ wmsOverlay.remove(); wmsOverlay = null; } note.textContent = ''; return; }
   note.textContent = '';
   const built = wmsBuildUrl(); if (!built) return;
@@ -497,17 +486,12 @@ function updateWmsOverlay(){ if (!map) return;
 function scheduleWms(){ if (wmsTimer || !map) return; wmsTimer = setTimeout(()=>{ wmsTimer = null; updateWmsOverlay(); }, 120); }
 
 /* ── легенда слоя карты (быстрый GetLegendGraphic) ──────────────────── */
-function renderLayerLegend(){
-  const card = $('legend-float'), canvas = $('wms-legend-canvas'), title = $('lf-title');
-  if (!currentLayerName){ card.classList.remove('show'); return; }
-  const layerDef = WMS_LAYERS.find(l => l.id === currentLayerName);
-  title.textContent = layerDef ? layerDef.title : 'Легенда';
-  let u = `${WMS}?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer=${encodeURIComponent(currentLayerName)}&format=image/png&STYLE=default`;
-  if (wmsToken) u += '&token=' + encodeURIComponent(wmsToken);
+function loadLegendImage(url){
+  const card = $('legend-float'), canvas = $('wms-legend-canvas');
   // легенде всегда нужен CORS-безопасный источник для чтения пикселей — идём через
   // встроенный /proxy этого сайта напрямую, не завися от поля «свой Worker» (оно может
   // быть настроено под другую задачу и указывать не туда).
-  const attempts = [SAME_ORIGIN_PROXY + '?url=' + encodeURIComponent(u), u];
+  const attempts = [SAME_ORIGIN_PROXY + '?url=' + encodeURIComponent(url), url];
   const tryLoad = idx => {
     if (idx >= attempts.length){ card.classList.remove('show'); return; }
     const img = new Image(); img.crossOrigin = 'anonymous';
@@ -532,6 +516,20 @@ function renderLayerLegend(){
   };
   tryLoad(0);
 }
+function renderLayerLegend(){
+  const title = $('lf-title');
+  if (!currentLayerName){ $('legend-float').classList.remove('show'); return; }
+  if (currentLayerName === CAO_LAYER_ID){
+    title.textContent = 'Явления погоды (ЦАО)';
+    loadLegendImage('https://meteoinfo.ru/images/fact/radar-legenda.gif');
+    return;
+  }
+  const layerDef = WMS_LAYERS.find(l => l.id === currentLayerName);
+  title.textContent = layerDef ? layerDef.title : 'Легенда';
+  let u = `${WMS}?version=1.3.0&service=WMS&request=GetLegendGraphic&sld_version=1.1.0&layer=${encodeURIComponent(currentLayerName)}&format=image/png&STYLE=default`;
+  if (wmsToken) u += '&token=' + encodeURIComponent(wmsToken);
+  loadLegendImage(u);
+}
 $('lf-toggle').addEventListener('click', () => {
   const card = $('legend-float'), collapsed = card.classList.toggle('collapsed');
   $('lf-toggle').textContent = collapsed ? '+' : '−';
@@ -541,12 +539,21 @@ $('lf-toggle').addEventListener('click', () => {
 function buildLayerList(){
   const sel = $('wms-layer');
   sel.innerHTML = '<option value="">off</option>' +
-    WMS_LAYERS.map(l => `<option value="${esc(l.id)}">${esc(l.title)}</option>`).join('');
+    WMS_LAYERS.map(l => `<option value="${esc(l.id)}">${esc(l.title)}</option>`).join('') +
+    `<option value="${CAO_LAYER_ID}">ЦАО · анимация (meteoinfo.ru)</option>`;
   let wanted = currentLayerName;
-  if (!wanted || !WMS_LAYERS.some(l => l.id === wanted)) wanted = PREFERRED[0];
+  if (!wanted || (!WMS_LAYERS.some(l => l.id === wanted) && wanted !== CAO_LAYER_ID)) wanted = PREFERRED[0];
   currentLayerName = wanted; sel.value = wanted;
 }
-function onWmsLayer(){ currentLayerName = $('wms-layer').value; updateWmsOverlay(); renderLayerLegend(); }
+function onWmsLayer(){
+  currentLayerName = $('wms-layer').value;
+  if (currentLayerName === CAO_LAYER_ID){
+    $('cao-overlay').classList.add('show'); updateWmsOverlay(); caoReload(false);
+  } else {
+    $('cao-overlay').classList.remove('show'); updateWmsOverlay();
+  }
+  renderLayerLegend();
+}
 function onWmsOpacity(){ const v = +$('wms-op').value; $('wms-op-val').textContent = Math.round(v*100) + '%'; if (wmsOverlay) wmsOverlay.setOpacity(v); }
 
 /* ── ЦАО-анимация (meteoinfo.ru/radanim) ────────────────────────────── */
@@ -560,12 +567,10 @@ function caoReload(manual){
   img.src = base + (base.includes('?') ? '&' : '?') + 'r=' + Date.now();
   if (manual) toast('Обновляю анимацию ЦАО…');
 }
-function showTab(which){ const x = which === 'x';
-  $('tab-x').classList.toggle('on', x); $('tab-c').classList.toggle('on', !x);
-  $('x-view').style.display = x ? 'flex' : 'none'; $('cao-view').classList.toggle('on', !x);
-  if (!x && !$('cao-gif').getAttribute('src')) caoReload(false);
-  if (x) drawSection(); }
-setInterval(() => { if ($('cao-auto').checked) caoReload(false); }, CAO_REFRESH_MS);
+function openPanel(){ $('panel').classList.add('open'); }
+function closePanel(){ $('panel').classList.remove('open'); }
+$('panel-close').addEventListener('click', closePanel);
+setInterval(() => { if (currentLayerName === CAO_LAYER_ID && $('cao-auto').checked) caoReload(false); }, CAO_REFRESH_MS);
 
 /* ── кадры, время, анимация nowcast ─────────────────────────────────── */
 function selectedFrame(){ const v = $('time').value; return frames.find(f => f.archive === v) || frames[0] || null; }
@@ -616,7 +621,7 @@ function renderRadarsSidebar(list){ const box = $('radars');
 function autoRadars(){ ports = null; $('btn-auto').disabled = true; if (pts.length === 2) cut(); }
 
 /* ── сечение ────────────────────────────────────────────────────────── */
-async function cut(){ if (pts.length < 2) return; stopAnim(); veil(true, 'Cutting…');
+async function cut(){ if (pts.length < 2) return; openPanel(); stopAnim(); veil(true, 'Cutting…');
   try{ const q = new URLSearchParams({ lon1: pts[0][0], lat1: pts[0][1], lon2: pts[1][0], lat2: pts[1][1], family: family, time: $('time').value || 'latest' });
     if (ports !== null && ports.length) q.set('ports', ports.join(','));
     section = await apiFetch('/xsection?' + q.toString());
@@ -750,6 +755,7 @@ function shareLink(){ if (pts.length < 2){ toast('Сначала проведи�
 async function boot(){
   $('proxy-url').value = getUserProxy();
   buildLayerList();
+  if (currentLayerName === CAO_LAYER_ID){ $('cao-overlay').classList.add('show'); caoReload(false); }
   renderLayerLegend();
 
   veil(true, 'Получение токена…');
