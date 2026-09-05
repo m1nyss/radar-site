@@ -59,8 +59,8 @@ select,input[type=text]{width:100%}
 .legend-float .lf-toggle{background:none;border:none;color:var(--accent);font-family:var(--mono);
   font-size:.95rem;line-height:1;padding:0 3px;cursor:pointer;flex:none}
 .legend-float .lf-toggle:hover{color:#fff}
-.legend-float .lf-body{max-height:82vh;overflow:auto;background:#05080c;padding:8px}
-.legend-float .lf-body canvas{display:block;max-width:100%;height:auto}
+.legend-float .lf-body{max-height:82vh;overflow:auto;background:#dfe7ee;padding:6px}
+.legend-float .lf-body img{display:block;max-width:100%;height:auto}
 .legend-float.collapsed .lf-body{display:none}
 .check{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.66rem;color:var(--text);margin-top:8px;cursor:pointer;user-select:none}
 .check input{accent-color:var(--accent);margin:0}
@@ -212,7 +212,7 @@ select,input[type=text]{width:100%}
           <span class="lf-title" id="lf-title">Легенда</span>
           <button class="lf-toggle" id="lf-toggle" title="свернуть/развернуть">−</button>
         </div>
-        <div class="lf-body" id="lf-body"><canvas id="wms-legend-canvas"></canvas></div>
+        <div class="lf-body" id="lf-body"><img id="wms-legend-img" alt="Layer legend"></div>
       </div>
     </div>
     <div class="panel" id="panel">
@@ -457,59 +457,13 @@ function scheduleWms(){ if (wmsTimer || !map) return; wmsTimer = setTimeout(()=>
 
 /* ── легенда слоя карты (быстрый GetLegendGraphic) ──────────────────── */
 function loadLegendImage(url){
-  const card = $('legend-float'), canvas = $('wms-legend-canvas');
-  // легенде всегда нужен CORS-безопасный источник для чтения пикселей — идём через
-  // встроенный /proxy этого сайта напрямую, не завися от поля «свой Worker» (оно может
-  // быть настроено под другую задачу и указывать не туда).
+  const card = $('legend-float'), img = $('wms-legend-img');
+  // сначала свой /proxy (не завязан на поле «свой Worker» — оно может быть настроено
+  // под другую задачу), если вдруг не сработает — пробуем запрос напрямую
   const attempts = [SAME_ORIGIN_PROXY + '?url=' + encodeURIComponent(url), url];
   const tryLoad = idx => {
     if (idx >= attempts.length){ card.classList.remove('show'); return; }
-    const img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0);
-      try {
-        const id = ctx.getImageData(0, 0, canvas.width, canvas.height), d = id.data, W = canvas.width, H = canvas.height;
-        // цветную плашку в каждой строке ищем динамически (однородный широкий отрезок,
-        // заметно отличающийся от белого фона) — так работает для любой ширины картинки,
-        // не завязано на угаданный процент. Всё остальное (фон + текст) инвертируем.
-        for (let y = 0; y < H; y++){
-          let x = 0;
-          while (x < W){
-            const i0 = (y * W + x) * 4;
-            if (d[i0+3] === 0){ x++; continue; }
-            const r0 = d[i0], g0 = d[i0+1], b0 = d[i0+2];
-            let end = x + 1;
-            while (end < W){
-              const j = (y * W + end) * 4;
-              if (d[j+3] === 0) break;
-              if (Math.abs(d[j]-r0) > 10 || Math.abs(d[j+1]-g0) > 10 || Math.abs(d[j+2]-b0) > 10) break;
-              end++;
-            }
-            const runLen = end - x, distFromWhite = (255-r0) + (255-g0) + (255-b0);
-            let isSwatch = false;
-            if (runLen >= 14 && distFromWhite > 20){
-              // доп. проверка: настоящая плашка — закрашенный прямоугольник, её цвет
-              // держится и на строках ниже; широкий штрих буквы так не делает
-              const midX = x + (runLen >> 1), checkY = Math.min(H - 1, y + 6);
-              const k = (checkY * W + midX) * 4;
-              isSwatch = k+3 < d.length && d[k+3] !== 0 &&
-                Math.abs(d[k]-r0) < 14 && Math.abs(d[k+1]-g0) < 14 && Math.abs(d[k+2]-b0) < 14;
-            }
-            if (!isSwatch){
-              for (let xx = x; xx < end; xx++){
-                const k = (y * W + xx) * 4;
-                if (d[k+3] === 0) continue;
-                d[k] = 255 - d[k]; d[k+1] = 255 - d[k+1]; d[k+2] = 255 - d[k+2];
-              }
-            }
-            x = end;
-          }
-        }
-        ctx.putImageData(id, 0, 0);
-      } catch (e) { /* канвас оказался «запятнан» CORS — оставляем как есть */ }
-      card.classList.add('show');
-    };
+    img.onload = () => card.classList.add('show');
     img.onerror = () => tryLoad(idx + 1);
     img.src = attempts[idx];
   };
