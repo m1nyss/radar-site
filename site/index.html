@@ -526,7 +526,10 @@ async function computeMotionVectors(){
   if (motionBusy) return;
   if (!currentLayerName){ note.textContent = 'выберите радарный слой'; if (motionLayer) motionLayer.clearLayers(); return; }
   const frame = selectedFrame(); if (!frame){ note.textContent = 'нет кадра'; if (motionLayer) motionLayer.clearLayers(); return; }
-  const idx = frames.findIndex(f => f.archive === frame.archive), prevFrame = frames[idx+1];
+  const curTime = new Date(frame.utc).getTime();
+  let prevFrame = null, bestDelta = Infinity;
+  for (const f of frames){ const t = new Date(f.utc).getTime();
+    if (t < curTime && (curTime - t) < bestDelta){ bestDelta = curTime - t; prevFrame = f; } }
   if (!prevFrame){ note.textContent = 'нет предыдущего кадра для сравнения'; if (motionLayer) motionLayer.clearLayers(); return; }
   motionBusy = true; note.textContent = 'считаю смещение…';
   try {
